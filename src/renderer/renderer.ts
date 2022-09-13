@@ -227,12 +227,16 @@ class Renderer {
   update(updateInfo: {
     scene: {
       camera: THREE.PerspectiveCamera,
-      updateResources: { projectionMatrixBuffer: GPUBuffer }
+      updateResources: { 
+        projectionMatrixBuffer: GPUBuffer, 
+        viewMatrixBuffer: GPUBuffer,
+        cameraPositionBuffer: GPUBuffer
+      }
     },
     mesh: {
       mesh: THREE.SkinnedMesh,
       updateResources: {
-        modelViewMatrixBuffer: GPUBuffer,
+        modelMatrixBuffer: GPUBuffer,
         boneMatricesBuffer: GPUBuffer
       }
     }[]
@@ -244,15 +248,23 @@ class Renderer {
 
     this.device.queue.writeBuffer(
       updateInfo.scene.updateResources.projectionMatrixBuffer, 0,
-      new Float32Array(updateInfo.scene.camera.projectionMatrix.elements)
+      new Float32Array(camera.projectionMatrix.elements)
+    );
+    this.device.queue.writeBuffer(
+      updateInfo.scene.updateResources.viewMatrixBuffer, 0,
+      new Float32Array(camera.matrixWorldInverse.elements)
+    );
+    this.device.queue.writeBuffer(
+      updateInfo.scene.updateResources.cameraPositionBuffer, 0,
+      new Float32Array([camera.position.x, camera.position.y, camera.position.z])
     );
 
     for (const meshInfo of updateInfo.mesh) {
       meshInfo.mesh.updateMatrixWorld();
       this.device.queue.writeBuffer(
-        meshInfo.updateResources.modelViewMatrixBuffer, 0,
+        meshInfo.updateResources.modelMatrixBuffer, 0,
         new Float32Array(
-          camera.matrixWorldInverse.multiply(meshInfo.mesh.matrixWorld).elements
+          meshInfo.mesh.matrixWorld.elements
         )
       );
       this.device.queue.writeBuffer(

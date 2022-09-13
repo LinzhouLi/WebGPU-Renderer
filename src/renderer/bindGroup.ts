@@ -63,10 +63,10 @@ THREE.Frustum.prototype.setFromProjectionMatrix = function ( m ) {
 };
 
 const ResourcesForScene: string[][] = [
-  ['projectionMatrix', 'lightPosition', 'lightColor', 'lightInfo']
+  ['projectionMatrix', 'viewMatrix', 'cameraPosition', 'lightPosition', 'lightColor', 'lightInfo']
 ];
 const ResourcesForMesh: string[][] = [
-  ['modelViewMatrix', 'meshInfo', 'boneMatrices'],
+  ['modelMatrix', 'meshInfo', 'boneMatrices'],
   ['linearSampler', 'texture', 'normalMap', 'metalnessMap']
 ];
 
@@ -89,16 +89,24 @@ class BindGroupFactor {
         binding: 0,
         visibility: GPUShaderStage.VERTEX,
         buffer: { type: 'uniform' }
-      }, { // light position
+      },{ // view matrix
         binding: 1,
-        visibility: GPUShaderStage.FRAGMENT,
+        visibility: GPUShaderStage.VERTEX,
         buffer: { type: 'uniform' }
-      }, { // light color
+      }, { // camera position
         binding: 2,
         visibility: GPUShaderStage.FRAGMENT,
         buffer: { type: 'uniform' }
-      }, { // light infomation
+      }, { // light position
         binding: 3,
+        visibility: GPUShaderStage.FRAGMENT,
+        buffer: { type: 'uniform' }
+      }, { // light color
+        binding: 4,
+        visibility: GPUShaderStage.FRAGMENT,
+        buffer: { type: 'uniform' }
+      }, { // light infomation
+        binding: 5,
         visibility: GPUShaderStage.FRAGMENT,
         buffer: { type: 'uniform' }
       }], 
@@ -122,11 +130,24 @@ class BindGroupFactor {
     });
     this.device.queue.writeBuffer(projectionMatrixBuffer, 0, projectionMatrix);
 
-    // light position (in the camera coordinate)
-    let lightPos = new THREE.Vector4(light.position.x, light.position.y, light.position.z, 1.0);
-    lightPos.applyMatrix4(camera.matrixWorldInverse.multiply(light.matrixWorld));
-    lightPos.multiplyScalar(1 / lightPos.w);
-    const lightPosition = new Float32Array([lightPos.x, lightPos.y, lightPos.z]);
+    // projection matrix
+    const viewMatrix = new Float32Array(camera.matrixWorldInverse.elements);
+    const viewMatrixBuffer = this.device.createBuffer({
+      size: viewMatrix.byteLength,
+      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+    });
+    this.device.queue.writeBuffer(viewMatrixBuffer, 0, viewMatrix);
+
+    // camera position
+    const cameraPosition = new Float32Array([camera.position.x, camera.position.y, camera.position.z]);
+    const cameraPositionBuffer = this.device.createBuffer({
+      size: cameraPosition.byteLength,
+      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+    });
+    this.device.queue.writeBuffer(cameraPositionBuffer, 0, cameraPosition);
+
+    // light position
+    const lightPosition = new Float32Array([light.position.x, light.position.y, light.position.z]);
     const lightPositionBuffer = this.device.createBuffer({
       size: lightPosition.byteLength,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
@@ -157,18 +178,24 @@ class BindGroupFactor {
         resource: { buffer: projectionMatrixBuffer }
       }, {
         binding: 1,
-        resource: { buffer: lightPositionBuffer }
+        resource: { buffer: viewMatrixBuffer }
       }, {
         binding: 2,
-        resource: { buffer: lightColorBuffer }
+        resource: { buffer: cameraPositionBuffer }
       }, {
         binding: 3,
+        resource: { buffer: lightPositionBuffer }
+      }, {
+        binding: 4,
+        resource: { buffer: lightColorBuffer }
+      }, {
+        binding: 5,
         resource: { buffer: lightInfoBuffer }
       }]
     });
 
     return {
-      updateResources: { projectionMatrixBuffer },
+      updateResources: { projectionMatrixBuffer, viewMatrixBuffer, cameraPositionBuffer },
       groups: [constantBindGroup]
     };
 
@@ -189,7 +216,7 @@ class SkinnedStandardMaterialBindGroupFactor extends BindGroupFactor {
     // constants for the mesh
     const constantBindGroupLayout = this.device.createBindGroupLayout({
       label: 'Bind Group Layout: Contants for Mesh',
-      entries: [{ // model view matrix
+      entries: [{ // model matrix
         binding: 0,
         visibility: GPUShaderStage.VERTEX,
         buffer: { type: 'uniform' }
@@ -206,7 +233,7 @@ class SkinnedStandardMaterialBindGroupFactor extends BindGroupFactor {
 
     const materialBindGroupLayout = this.device.createBindGroupLayout({
       label: 'Bind Group Layout: Textures for Mesh Material',
-      entries: [{ // model view matrix
+      entries: [{ // sampler
         binding: 0,
         visibility: GPUShaderStage.FRAGMENT,
         sampler: { type: 'filtering' }
@@ -246,13 +273,13 @@ class SkinnedStandardMaterialBindGroupFactor extends BindGroupFactor {
     const skeleton = mesh.skeleton as THREE.Skeleton;
     const material = mesh.material as THREE.MeshStandardMaterial;
 
-    // model view matrix
-    const modelViewMatrix = new Float32Array(camera.matrixWorldInverse.multiply(mesh.matrixWorld).elements);
-    const modelViewMatrixBuffer = this.device.createBuffer({
-      size: modelViewMatrix.byteLength,
+    // model matrix
+    const modelMatrix = new Float32Array(mesh.matrixWorld.elements);
+    const modelMatrixBuffer = this.device.createBuffer({
+      size: modelMatrix.byteLength,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
     });
-    this.device.queue.writeBuffer(modelViewMatrixBuffer, 0, modelViewMatrix);
+    this.device.queue.writeBuffer(modelMatrixBuffer, 0, modelMatrix);
 
     // normal matrix
     // const normalMatrix = new Float32Array(
@@ -285,7 +312,7 @@ class SkinnedStandardMaterialBindGroupFactor extends BindGroupFactor {
       layout: layouts[0],
       entries: [{
         binding: 0,
-        resource: { buffer: modelViewMatrixBuffer }
+        resource: { buffer: modelMatrixBuffer }
       }, {
         binding: 1,
         resource: { buffer: meshInfoBuffer }
@@ -362,7 +389,7 @@ class SkinnedStandardMaterialBindGroupFactor extends BindGroupFactor {
     });
 
     return {
-      updateResources: { modelViewMatrixBuffer, boneMatricesBuffer },
+      updateResources: { modelMatrixBuffer, boneMatricesBuffer },
       groups: [constantBindGroup, materialBindGroup]
     };
 

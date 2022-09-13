@@ -13,6 +13,8 @@ class Main {
 
   canvas: HTMLCanvasElement;
   renderer: Renderer;
+  mixer: THREE.AnimationMixer;
+  clock: THREE.Clock;
 
   constructor() {
 
@@ -84,8 +86,10 @@ class Main {
     let light = new THREE.PointLight(0xffffff, 1, 100);
     light.position.set( 0, 5, 5 );
 
+    // controls
     new OrbitControls(camera, this.canvas);
 
+    // mesh
     const glb = await this.loadGLB('test/male.glb');
     const mesh = glb.scene.children[2] as THREE.SkinnedMesh;
     const material = mesh.material as THREE.MeshStandardMaterial;
@@ -101,6 +105,13 @@ class Main {
     }
     computeMikkTSpaceTangents(mesh.geometry, mikkTSpace);
     console.log(mesh) //
+
+    // animation
+    this.mixer = new THREE.AnimationMixer(mesh);
+    // const action = this.mixer.clipAction(glb.animations[0])
+
+    // clock
+    this.clock = new THREE.Clock();
   
     return { camera, light, mesh };
 
