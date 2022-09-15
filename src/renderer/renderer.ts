@@ -1,79 +1,10 @@
 import * as THREE from 'three';
-import { VertexBufferType, VertexBufferFactory } from './vertexBuffer';
-import { SkinnedStandardMaterialBindGroupFactor, BindGroupFactor } from './bindGroup';
 
-// console.info( 'THREE.WebGPURenderer: Modified Matrix4.makePerspective() and Matrix4.makeOrtographic() to work with WebGPU, see https://github.com/mrdoob/three.js/issues/20276.' );
-
-THREE.Matrix4.prototype.makePerspective = function ( left, right, top, bottom, near, far ) : THREE.Matrix4 {
-  
-	const te = this.elements;
-	const x = 2 * near / ( right - left );
-	const y = 2 * near / ( top - bottom );
-
-	const a = ( right + left ) / ( right - left );
-	const b = ( top + bottom ) / ( top - bottom );
-	const c = - far / ( far - near );
-	const d = - far * near / ( far - near );
-
-	te[ 0 ] = x;	te[ 4 ] = 0;	te[ 8 ] = a;	te[ 12 ] = 0;
-	te[ 1 ] = 0;	te[ 5 ] = y;	te[ 9 ] = b;	te[ 13 ] = 0;
-	te[ 2 ] = 0;	te[ 6 ] = 0;	te[ 10 ] = c;	te[ 14 ] = d;
-	te[ 3 ] = 0;	te[ 7 ] = 0;	te[ 11 ] = - 1;	te[ 15 ] = 0;
-
-	return this;
-
-};
-
-THREE.Matrix4.prototype.makeOrthographic = function ( left, right, top, bottom, near, far ) {
-
-	const te = this.elements;
-	const w = 1.0 / ( right - left );
-	const h = 1.0 / ( top - bottom );
-	const p = 1.0 / ( far - near );
-
-	const x = ( right + left ) * w;
-	const y = ( top + bottom ) * h;
-	const z = near * p;
-
-	te[ 0 ] = 2 * w;	te[ 4 ] = 0;		te[ 8 ] = 0;		te[ 12 ] = - x;
-	te[ 1 ] = 0;		te[ 5 ] = 2 * h;	te[ 9 ] = 0;		te[ 13 ] = - y;
-	te[ 2 ] = 0;		te[ 6 ] = 0;		te[ 10 ] = - 1 * p;	te[ 14 ] = - z;
-	te[ 3 ] = 0;		te[ 7 ] = 0;		te[ 11 ] = 0;		te[ 15 ] = 1;
-
-	return this;
-
-};
-
-THREE.Frustum.prototype.setFromProjectionMatrix = function ( m ) {
-
-	const planes = this.planes;
-	const me = m.elements;
-	const me0 = me[ 0 ], me1 = me[ 1 ], me2 = me[ 2 ], me3 = me[ 3 ];
-	const me4 = me[ 4 ], me5 = me[ 5 ], me6 = me[ 6 ], me7 = me[ 7 ];
-	const me8 = me[ 8 ], me9 = me[ 9 ], me10 = me[ 10 ], me11 = me[ 11 ];
-	const me12 = me[ 12 ], me13 = me[ 13 ], me14 = me[ 14 ], me15 = me[ 15 ];
-
-	planes[ 0 ].setComponents( me3 - me0, me7 - me4, me11 - me8, me15 - me12 ).normalize();
-	planes[ 1 ].setComponents( me3 + me0, me7 + me4, me11 + me8, me15 + me12 ).normalize();
-	planes[ 2 ].setComponents( me3 + me1, me7 + me5, me11 + me9, me15 + me13 ).normalize();
-	planes[ 3 ].setComponents( me3 - me1, me7 - me5, me11 - me9, me15 - me13 ).normalize();
-	planes[ 4 ].setComponents( me3 - me2, me7 - me6, me11 - me10, me15 - me14 ).normalize();
-	planes[ 5 ].setComponents( me2, me6, me10, me14 ).normalize();
-
-	return this;
-
-};
-
-type BindGroupResources = GPUSampler | GPUTexture | GPUBuffer;
-
-type RenderPipelineWithData = {
-  pipeline: GPURenderPipeline,
-  data: {
-    vertexCount: number,
-    vertexBuffers: GPUBuffer[],
-    bindGroups: GPUBindGroup[]
-  }
-};
+import { 
+  BasicRenderPipelineFactory, SkinnedBasicRenderPipelineFactory, 
+  SkinnedStandardRenderPipelineFactory
+} from './pipeline';
+import { RenderObject, RenderObjects } from './renderObjects';
 
 class Renderer {
 
@@ -86,6 +17,16 @@ class Renderer {
   canvasTargetFormat: GPUTextureFormat;
 
   depthView: GPUTextureView;
+
+  // pipelines
+  pipelines: {
+    basic: GPURenderPipeline | null,
+    skinnedBasic: GPURenderPipeline | null,
+    skinnedStandard: GPURenderPipeline | null
+  }
+
+  // render objects
+  renderObjects: RenderObjects;
 
   constructor(canvas: HTMLCanvasElement) {
 
@@ -128,154 +69,48 @@ class Renderer {
 
   }
 
-  async initSceneResource(
-    camera: THREE.PerspectiveCamera,
-    light: THREE.PointLight
-  ) {
+  async initPipeline(scene: THREE.Scene) {
 
-    // create depthTexture for renderPass
     const depthTexture = this.device.createTexture({
       size: this.size, 
       format: 'depth24plus',
       usage: GPUTextureUsage.RENDER_ATTACHMENT,
-    });
-    this.depthView = depthTexture.createView();
+    })
+    this.depthView = depthTexture.createView()
 
-    // bind group for the scene
-    const resourceFactory = new BindGroupFactor(this.device);
-    const layouts = resourceFactory.createLayoutScene();
-    const resources = await resourceFactory.createResourceScene(camera, light, layouts);
-    return { 
-      layouts: layouts,
-      groups: resources.groups,
-      updateResources: resources.updateResources,
+    this.pipelines = {
+      basic: null,
+      skinnedBasic: null,
+      skinnedStandard: null
     };
 
-  }
-
-  async initSkinnedMeshResource(
-    mesh: THREE.SkinnedMesh,
-    camera: THREE.PerspectiveCamera
-  ) {
-
-    const bufferFactory = new VertexBufferFactory(this.device, VertexBufferType.SKINNED | VertexBufferType.TANGENT);
-    const resourceFactory = new SkinnedStandardMaterialBindGroupFactor(this.device);
-
-    const vertexBufferLayouts = bufferFactory.createLayout();
-    const vertexBuffers = await bufferFactory.createBuffer(mesh.geometry);
-
-    const bindGroupLayouts = resourceFactory.createLayoutMesh();
-    const bindGroupResources = await resourceFactory.createResourceMesh(mesh, camera, bindGroupLayouts);
-
-    return {
-      vertexBuffer: {
-        layouts: vertexBufferLayouts,
-        buffers: vertexBuffers
-      },
-      bindGroup: {
-        layouts: bindGroupLayouts,
-        groups: bindGroupResources.groups,
-        updateResources: bindGroupResources.updateResources,
-      }
-    };
-
-  }
-
-  async initSkinnedMeshPipeline(
-    layouts: {
-      vertexBuffer: GPUVertexBufferLayout[],
-      bindGroup: GPUBindGroupLayout[]
-    },
-    code: {
-      vertexShader: string,
-      fragmentShader: string,
+    this.renderObjects = new RenderObjects(this.device);
+    await this.renderObjects.init(scene);
+    
+    if (this.renderObjects.basic.length > 0) {
+      const pipelineFactory = new BasicRenderPipelineFactory(this.device);
+      this.pipelines.basic = await pipelineFactory.create(this.canvasTargetFormat);
     }
-  ) {
-
-    const pipeline = await this.device.createRenderPipelineAsync({
-      label: 'Render Pipeline',
-      layout: this.device.createPipelineLayout({
-        bindGroupLayouts: layouts.bindGroup
-      }),
-      vertex: {
-        module: this.device.createShaderModule({ code: code.vertexShader }),
-        entryPoint: 'main',
-        buffers: layouts.vertexBuffer
-      },
-      fragment: {
-        module: this.device.createShaderModule({ code: code.fragmentShader }),
-        entryPoint: 'main',
-        targets: [{
-          format: this.canvasTargetFormat
-        }]
-      },
-      primitive: {
-        topology: 'triangle-list',
-        cullMode: 'back'
-      },
-      depthStencil: {
-        depthWriteEnabled: true,
-        depthCompare: 'less',
-        format: 'depth24plus',
-      }
-    });
-
-    return pipeline;
-
-  }
-
-  update(updateInfo: {
-    scene: {
-      camera: THREE.PerspectiveCamera,
-      updateResources: { 
-        projectionMatrixBuffer: GPUBuffer, 
-        viewMatrixBuffer: GPUBuffer,
-        cameraPositionBuffer: GPUBuffer
-      }
-    },
-    mesh: {
-      mesh: THREE.SkinnedMesh,
-      updateResources: {
-        modelMatrixBuffer: GPUBuffer,
-        boneMatricesBuffer: GPUBuffer
-      }
-    }[]
-  }) {
-
-    const camera = updateInfo.scene.camera;
-    camera.updateProjectionMatrix();
-    camera.updateMatrixWorld();
-
-    this.device.queue.writeBuffer(
-      updateInfo.scene.updateResources.projectionMatrixBuffer, 0,
-      new Float32Array(camera.projectionMatrix.elements)
-    );
-    this.device.queue.writeBuffer(
-      updateInfo.scene.updateResources.viewMatrixBuffer, 0,
-      new Float32Array(camera.matrixWorldInverse.elements)
-    );
-    this.device.queue.writeBuffer(
-      updateInfo.scene.updateResources.cameraPositionBuffer, 0,
-      new Float32Array([camera.position.x, camera.position.y, camera.position.z])
-    );
-
-    for (const meshInfo of updateInfo.mesh) {
-      meshInfo.mesh.updateMatrixWorld();
-      this.device.queue.writeBuffer(
-        meshInfo.updateResources.modelMatrixBuffer, 0,
-        new Float32Array(
-          meshInfo.mesh.matrixWorld.elements
-        )
-      );
-      this.device.queue.writeBuffer(
-        meshInfo.updateResources.boneMatricesBuffer, 0,
-        new Float32Array(meshInfo.mesh.skeleton.boneMatrices)
-      );
+    
+    if (this.renderObjects.skinnedBasic.length > 0) {
+      const pipelineFactory = new SkinnedBasicRenderPipelineFactory(this.device);
+      this.pipelines.skinnedBasic = await pipelineFactory.create(this.canvasTargetFormat);
     }
+    
+    if (this.renderObjects.skinnedStandard.length > 0) {
+      const pipelineFactory = new SkinnedStandardRenderPipelineFactory(this.device);
+      this.pipelines.skinnedStandard = await pipelineFactory.create(this.canvasTargetFormat);
+    }
+    
+  }
+
+  update() {
+
+    this.renderObjects.update();
 
   }
 
-  draw(pipelines: RenderPipelineWithData[]) {
+  draw() {
 
     const commandEncoder = this.device.createCommandEncoder();
     const renderPassEncoder = commandEncoder.beginRenderPass({
@@ -293,23 +128,45 @@ class Renderer {
       }
     });
 
-    for (const pipelineWithData of pipelines) {
+    for (const key in this.pipelines) { // change pipeline
 
-      renderPassEncoder.setPipeline(pipelineWithData.pipeline);
+      const pipeline = this.pipelines[key] as GPURenderPipeline;
 
-      let slotIndex = 0;
-      for (const vertexBuffer of pipelineWithData.data.vertexBuffers) {
-        renderPassEncoder.setVertexBuffer(slotIndex, vertexBuffer);
-        slotIndex++;
+      if (pipeline) {
+
+        renderPassEncoder.setPipeline(pipeline);
+
+        const renderObjects = this.renderObjects[key] as RenderObject[];
+
+        for (const renderObject of renderObjects) { // change render object (mesh)
+
+          // set vertex buffer slots
+          let slotIndex = 0;
+          for (const vertexBuffer of renderObject.vertexBuffer.attributes) {
+            if (vertexBuffer) {
+              renderPassEncoder.setVertexBuffer(slotIndex, vertexBuffer);
+            }
+            slotIndex++;
+          }
+
+          // set bind group
+          let groupIndex = 0;
+          for (const group of renderObject.groups) {
+            renderPassEncoder.setBindGroup(groupIndex, group);
+            groupIndex++;
+          }
+
+          // set index buffer and draw
+          if (renderObject.vertexBuffer.index) {
+            renderPassEncoder.setIndexBuffer(renderObject.vertexBuffer.index, 'uint16');
+            renderPassEncoder.drawIndexed(renderObject.vertexBuffer.vertexCount);
+          }
+          else
+            renderPassEncoder.draw(renderObject.vertexBuffer.vertexCount);
+
+        }
+
       }
-      
-      let groupIndex = 0;
-      for (const group of pipelineWithData.data.bindGroups) {
-        renderPassEncoder.setBindGroup(groupIndex, group);
-        groupIndex++;
-      }
-
-      renderPassEncoder.draw(pipelineWithData.data.vertexCount);
 
     }
 

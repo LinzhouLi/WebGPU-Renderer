@@ -41,10 +41,28 @@ const VertexBufferFormat = {
 type TypedArray = Float64Array | Float32Array | Int32Array | Uint32Array | Int16Array | Uint16Array | Int8Array | Uint8Array;
 
 const VertexBufferType = {
+  NONE: 0,
   COLOR: 1,
-  TANGENT: 2,
-  SKINNED: 4
+  UV: 2,
+  TANGENT: 4,
+  SKINNED: 8
 };
+
+class VertexBuffer {
+
+  vertexCount: number;
+  index: GPUBuffer | null;
+  attributes: (GPUBuffer | null)[];
+
+  constructor() {
+
+    this.vertexCount = 0;
+    this.index = null;
+    this.attributes = [];
+
+  }
+
+}
 
 class VertexBufferFactory {
 
@@ -55,8 +73,9 @@ class VertexBufferFactory {
 
     this.device = device;
 
-    this.bufferOrder = ['position', 'normal', 'uv'];
+    this.bufferOrder = ['position', 'normal'];
 
+    if (type & VertexBufferType.UV) this.bufferOrder.push('uv');
     if (type & VertexBufferType.COLOR) this.bufferOrder.push('color');
     if (type & VertexBufferType.TANGENT) this.bufferOrder.push('tangent');
     if (type & VertexBufferType.SKINNED) this.bufferOrder.push('skinIndex', 'skinWeight');
@@ -90,13 +109,30 @@ class VertexBufferFactory {
 
   async createBuffer(geometry: THREE.BufferGeometry) {
 
-    let vertexBuffers: GPUBuffer[] = [];
+    let vertexBuffer = new VertexBuffer();
 
+    // index
+    if (geometry.index) {
+
+      const bufferDataArray = geometry.index.array as TypedArray;
+      vertexBuffer.index = this.device.createBuffer({
+        label: 'GPUBuffer store vertex index',
+        size: bufferDataArray.byteLength,
+        usage: GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST
+      });
+      this.device.queue.writeBuffer(vertexBuffer.index, 0, bufferDataArray);
+
+      vertexBuffer.vertexCount = geometry.index.count;
+      
+    }
+    else vertexBuffer.vertexCount = geometry.attributes.position.count;
+
+    // other attributes
     for (let attributeName of this.bufferOrder) {
 
       const bufferAttribute = geometry.attributes[attributeName];
-      if (!bufferAttribute) 
-        throw new Error(`Not Found Buffer Attribute: ${attributeName}`);
+      if (!bufferAttribute)
+        // throw new Error(`Not Found Buffer Attribute: ${attributeName}`);
       if (Object.prototype.toString.call(bufferAttribute.array) != VertexBufferFormat[attributeName].cpuFormat) 
         throw new Error(`Invalid Array Type of Buffer Attribute: ${attributeName}`)
       
@@ -104,19 +140,19 @@ class VertexBufferFactory {
       const bufferDataArray = bufferAttribute.array as TypedArray;
         
       // create buffer
-      const vertexBuffer = this.device.createBuffer({
+      const buffer = this.device.createBuffer({
         size: bufferDataArray.byteLength,
         usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST
       });
-      this.device.queue.writeBuffer(vertexBuffer, 0, bufferDataArray);
-      vertexBuffers.push(vertexBuffer);
+      this.device.queue.writeBuffer(buffer, 0, bufferDataArray);
+      vertexBuffer.attributes.push(buffer);
       
     }
 
-    return vertexBuffers;
+    return vertexBuffer;
 
   }
 
 }
 
-export { VertexBufferType, VertexBufferFactory };
+export { VertexBufferType, VertexBufferFactory, VertexBuffer };

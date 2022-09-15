@@ -62,15 +62,10 @@ THREE.Frustum.prototype.setFromProjectionMatrix = function ( m ) {
 
 };
 
-const ResourcesForScene: string[][] = [
-  ['projectionMatrix', 'viewMatrix', 'cameraPosition', 'lightPosition', 'lightColor', 'lightInfo']
-];
-const ResourcesForMesh: string[][] = [
-  ['modelMatrix', 'meshInfo', 'boneMatrices'],
-  ['linearSampler', 'texture', 'normalMap', 'metalnessMap']
-];
+type ResourceType = GPUBuffer | GPUTexture | GPUSampler | GPUExternalTexture;
 
-class BindGroupFactor {
+
+abstract class BindGroupFactory {
 
   device: GPUDevice;
 
@@ -80,11 +75,38 @@ class BindGroupFactor {
 
   }
 
-  createLayoutScene() {
+  abstract createLayout(): GPUBindGroupLayout[];
+
+}
+
+
+type SceneUpdateResource = {
+  projectionMatrixBuffer: GPUBuffer, 
+  viewMatrixBuffer: GPUBuffer, 
+  cameraPositionBuffer: GPUBuffer
+};
+
+class GlobalBindGroupFactory extends BindGroupFactory {
+
+  private static layouts: GPUBindGroupLayout[] = [];
+  public static resourceOrder: string[][] = [];
+
+  constructor(device: GPUDevice) {
+
+    super(device);
+
+    this.createLayout();
+
+  }
+
+  createLayout() {
+
+    if (GlobalBindGroupFactory.layouts.length > 0) 
+      return GlobalBindGroupFactory.layouts;
 
     // constants for the scene
     const constantBindGroupLayout = this.device.createBindGroupLayout({
-      label: 'Bind Group Layout: Contants for Scene',
+      label: 'Bind Group Layout: Contants for Gloabl',
       entries: [{ // projection matrix
         binding: 0,
         visibility: GPUShaderStage.VERTEX,
@@ -112,14 +134,19 @@ class BindGroupFactor {
       }], 
     });
 
-    return [constantBindGroupLayout];
+    GlobalBindGroupFactory.layouts.push(constantBindGroupLayout);
+    GlobalBindGroupFactory.resourceOrder.push([
+      'projectionMatrix', 'viewMatrix', 'cameraPosition', 
+      'lightPosition', 'lightColor', 'lightInfo'
+    ]);
+
+    return GlobalBindGroupFactory.layouts;
 
   }
 
-  async createResourceScene(
-    camera: THREE.PerspectiveCamera,
+  async createResource(
     light: THREE.PointLight,
-    layouts: GPUBindGroupLayout[]
+    camera: THREE.PerspectiveCamera
   ) {
 
     // projection matrix
@@ -130,7 +157,7 @@ class BindGroupFactor {
     });
     this.device.queue.writeBuffer(projectionMatrixBuffer, 0, projectionMatrix);
 
-    // projection matrix
+    // view matrix
     const viewMatrix = new Float32Array(camera.matrixWorldInverse.elements);
     const viewMatrixBuffer = this.device.createBuffer({
       size: viewMatrix.byteLength,
@@ -171,8 +198,8 @@ class BindGroupFactor {
     this.device.queue.writeBuffer(lightInfoBuffer, 0, lightInfo);
 
     const constantBindGroup = this.device.createBindGroup({
-      label: 'Bind Group: Constants for Scene',
-      layout: layouts[0],
+      label: 'Bind Group: Constants for Gloabl',
+      layout: GlobalBindGroupFactory.layouts[0],
       entries: [{
         binding: 0,
         resource: { buffer: projectionMatrixBuffer }
@@ -195,7 +222,7 @@ class BindGroupFactor {
     });
 
     return {
-      updateResources: { projectionMatrixBuffer, viewMatrixBuffer, cameraPositionBuffer },
+      updateResources: { projectionMatrixBuffer, viewMatrixBuffer, cameraPositionBuffer } as SceneUpdateResource,
       groups: [constantBindGroup]
     };
 
@@ -203,19 +230,124 @@ class BindGroupFactor {
 
 }
 
-class SkinnedStandardMaterialBindGroupFactor extends BindGroupFactor {
+
+type BasicUpdateResource = {
+  modelMatrixBuffer: GPUBuffer
+};
+
+class BasicBindGroupFactory extends BindGroupFactory {
+
+  private static layouts: GPUBindGroupLayout[] = [];
+  public static resourceOrder: string[][] = [];
 
   constructor(device: GPUDevice) {
 
     super(device);
 
+    this.createLayout();
+
   }
 
-  createLayoutMesh() {
+  createLayout() {
+
+    if (BasicBindGroupFactory.layouts.length > 0) 
+      return BasicBindGroupFactory.layouts;
 
     // constants for the mesh
     const constantBindGroupLayout = this.device.createBindGroupLayout({
-      label: 'Bind Group Layout: Contants for Mesh',
+      label: 'Bind Group Layout: Contants for Basic Mesh',
+      entries: [{ // model matrix
+        binding: 0,
+        visibility: GPUShaderStage.VERTEX,
+        buffer: { type: 'uniform' }
+      }, { // color
+        binding: 1,
+        visibility: GPUShaderStage.FRAGMENT,
+        buffer: { type: 'uniform' }
+      }]
+    });
+
+    BasicBindGroupFactory.layouts.push(constantBindGroupLayout);
+    BasicBindGroupFactory.resourceOrder.push(['modelMatrix', 'color']);
+
+    return BasicBindGroupFactory.layouts;
+
+  }
+
+  async createResource(
+    mesh: THREE.Mesh,
+    camera: THREE.PerspectiveCamera
+  ) {
+
+    camera.updateMatrixWorld();
+    mesh.updateMatrixWorld();
+
+    const material = mesh.material as THREE.MeshBasicMaterial;
+
+    // model matrix
+    const modelMatrix = new Float32Array(mesh.matrixWorld.elements);
+    const modelMatrixBuffer = this.device.createBuffer({
+      size: modelMatrix.byteLength,
+      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+    });
+    this.device.queue.writeBuffer(modelMatrixBuffer, 0, modelMatrix);
+
+    // color buffer
+    const color = new Float32Array([material.color.r, material.color.g, material.color.b]);
+    const colorBuffer = this.device.createBuffer({
+      size: color.byteLength,
+      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+    });
+    this.device.queue.writeBuffer(colorBuffer, 0, color);
+
+    const constantBindGroup = this.device.createBindGroup({
+      label: 'Bind Group: Constants for Basic Mesh',
+      layout: BasicBindGroupFactory.layouts[0],
+      entries: [{
+        binding: 0,
+        resource: { buffer: modelMatrixBuffer }
+      }, {
+        binding: 1,
+        resource: { buffer: colorBuffer }
+      }]
+    });
+
+    return {
+      updateResources: { modelMatrixBuffer },
+      groups: [constantBindGroup]
+    };
+
+  }
+
+}
+
+
+type SkinnedUpdateResource = {
+  modelMatrixBuffer: GPUBuffer, 
+  boneMatricesBuffer: GPUBuffer
+};
+
+class SkinnedBasicBindGroupFactory extends BindGroupFactory {
+
+  private static layouts: GPUBindGroupLayout[] = [];
+  public static resourceOrder: string[][] = [];
+
+  constructor(device: GPUDevice) {
+
+    super(device);
+    
+    this.createLayout();
+    
+  }
+
+  createLayout() {
+
+    if (SkinnedBasicBindGroupFactory.layouts.length > 0) 
+    return SkinnedBasicBindGroupFactory.layouts;
+
+    // constants for the mesh
+    const constantBindGroupLayout = this.device.createBindGroupLayout({
+      label: 'Bind Group Layout: Contants for Skinned Basic Mesh',
       entries: [{ // model matrix
         binding: 0,
         visibility: GPUShaderStage.VERTEX,
@@ -231,8 +363,175 @@ class SkinnedStandardMaterialBindGroupFactor extends BindGroupFactor {
       }]
     });
 
+    SkinnedBasicBindGroupFactory.layouts.push(constantBindGroupLayout);
+    SkinnedBasicBindGroupFactory.resourceOrder.push(['modelMatrix', 'meshInfo', 'boneMatrices']);
+
     const materialBindGroupLayout = this.device.createBindGroupLayout({
-      label: 'Bind Group Layout: Textures for Mesh Material',
+      label: 'Bind Group Layout: Textures for Skinned Basic Mesh Material',
+      entries: [{ // sampler
+        binding: 0,
+        visibility: GPUShaderStage.FRAGMENT,
+        sampler: { type: 'filtering' }
+      }, { // texture
+        binding: 1,
+        visibility: GPUShaderStage.FRAGMENT,
+        texture: { sampleType: 'float' }
+      }]
+    });
+
+    SkinnedBasicBindGroupFactory.layouts.push(materialBindGroupLayout);
+    SkinnedBasicBindGroupFactory.resourceOrder.push(['sampler', 'texture']);
+
+    return SkinnedBasicBindGroupFactory.layouts;
+
+  }
+
+  async createResource(
+    mesh: THREE.SkinnedMesh,
+    camera: THREE.PerspectiveCamera
+  ) {
+    
+    if (!(mesh instanceof THREE.SkinnedMesh))
+      throw new Error('Not SkinnedMesh');
+
+    camera.updateMatrixWorld();
+    mesh.updateMatrixWorld();
+
+    const skeleton = mesh.skeleton as THREE.Skeleton;
+    const material = mesh.material as THREE.MeshStandardMaterial;
+
+    // model matrix
+    const modelMatrix = new Float32Array(mesh.matrixWorld.elements);
+    const modelMatrixBuffer = this.device.createBuffer({
+      size: modelMatrix.byteLength,
+      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+    });
+    this.device.queue.writeBuffer(modelMatrixBuffer, 0, modelMatrix);
+
+    // normal matrix
+    // const normalMatrix = new Float32Array(
+    //   camera.matrixWorldInverse.multiply(mesh.matrixWorld.invert().transpose()).elements
+    // );
+    // const normalMatrixBuffer = this.device.createBuffer({
+    //   size: normalMatrix.byteLength,
+    //   usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+    // });
+    // this.device.queue.writeBuffer(normalMatrixBuffer, 0, normalMatrix);
+
+    // mesh infomation (bone count)
+    const meshInfo = new Float32Array([skeleton.bones.length]);
+    const meshInfoBuffer = this.device.createBuffer({
+      size: meshInfo.byteLength,
+      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+    });
+    this.device.queue.writeBuffer(meshInfoBuffer, 0, meshInfo);
+
+    // bone matrices
+    const boneMatrices = new Float32Array(skeleton.boneMatrices);
+    const boneMatricesBuffer = this.device.createBuffer({
+      size: boneMatrices.byteLength,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST
+    });
+    this.device.queue.writeBuffer(boneMatricesBuffer, 0, boneMatrices);
+
+    const constantBindGroup = this.device.createBindGroup({
+      label: 'Bind Group: Constants for Skinned Basic Mesh',
+      layout: SkinnedBasicBindGroupFactory.layouts[0],
+      entries: [{
+        binding: 0,
+        resource: { buffer: modelMatrixBuffer }
+      }, {
+        binding: 1,
+        resource: { buffer: meshInfoBuffer }
+      }, {
+        binding: 2,
+        resource: { buffer: boneMatricesBuffer }
+      }]
+    });
+
+    // sampler
+    const sampler = this.device.createSampler({
+      magFilter: 'linear',
+      minFilter: 'linear'
+    });
+
+    // texture
+    let textureBitmap = material.map.source.data;
+    const textureSize = [textureBitmap.width, textureBitmap.height];
+    const texture = this.device.createTexture({
+      size: textureSize,
+      format: 'rgba8unorm',
+      usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT
+    });
+    this.device.queue.copyExternalImageToTexture(
+      { source: textureBitmap },
+      { texture: texture },
+      textureSize
+    );
+
+    const materialBindGroup = this.device.createBindGroup({
+      label: 'Bind Group: Textures for Skinned Basic Mesh Material',
+      layout: SkinnedBasicBindGroupFactory.layouts[1],
+      entries: [{
+        binding: 0,
+        resource: sampler
+      }, {
+        binding: 1,
+        resource: texture.createView()
+      }]
+    });
+
+    return {
+      updateResources: { modelMatrixBuffer, boneMatricesBuffer } as SkinnedUpdateResource,
+      groups: [constantBindGroup, materialBindGroup]
+    };
+
+  }
+
+}
+
+
+class SkinnedStandardBindGroupFactory extends BindGroupFactory {
+
+  private static layouts: GPUBindGroupLayout[] = [];
+  public static resourceOrder: string[][] = [];
+
+  constructor(device: GPUDevice) {
+
+    super(device);
+    
+    this.createLayout();
+
+  }
+
+  createLayout() {
+
+    if (SkinnedStandardBindGroupFactory.layouts.length > 0) 
+    return SkinnedStandardBindGroupFactory.layouts;
+
+    // constants for the mesh
+    const constantBindGroupLayout = this.device.createBindGroupLayout({
+      label: 'Bind Group Layout: Contants for Skinned Standard Mesh',
+      entries: [{ // model matrix
+        binding: 0,
+        visibility: GPUShaderStage.VERTEX,
+        buffer: { type: 'uniform' }
+      }, { // mesh infomation
+        binding: 1,
+        visibility: GPUShaderStage.VERTEX,
+        buffer: { type: 'uniform' }
+      }, { // bone matrices
+        binding: 2,
+        visibility: GPUShaderStage.VERTEX,
+        buffer: { type: 'read-only-storage' }
+      }]
+    });
+
+    SkinnedStandardBindGroupFactory.layouts.push(constantBindGroupLayout);
+    SkinnedStandardBindGroupFactory.resourceOrder.push(['modelMatrix', 'meshInfo', 'boneMatrices']);
+
+    const materialBindGroupLayout = this.device.createBindGroupLayout({
+      label: 'Bind Group Layout: Textures for Skinned Standard Mesh Material',
       entries: [{ // sampler
         binding: 0,
         visibility: GPUShaderStage.FRAGMENT,
@@ -252,14 +551,16 @@ class SkinnedStandardMaterialBindGroupFactor extends BindGroupFactor {
       }]
     });
 
-    return [constantBindGroupLayout, materialBindGroupLayout];
+    SkinnedStandardBindGroupFactory.layouts.push(materialBindGroupLayout);
+    SkinnedStandardBindGroupFactory.resourceOrder.push(['sampler', 'texture', 'normalMap', 'metalnessMap']);
+
+    return SkinnedStandardBindGroupFactory.layouts;
 
   }
 
-  async createResourceMesh(
+  async createResource(
     mesh: THREE.SkinnedMesh,
-    camera: THREE.PerspectiveCamera,
-    layouts: GPUBindGroupLayout[]
+    camera: THREE.PerspectiveCamera
   ) {
 
     if (!(mesh instanceof THREE.SkinnedMesh))
@@ -308,8 +609,8 @@ class SkinnedStandardMaterialBindGroupFactor extends BindGroupFactor {
     this.device.queue.writeBuffer(boneMatricesBuffer, 0, boneMatrices);
 
     const constantBindGroup = this.device.createBindGroup({
-      label: 'Bind Group: Constants for Mesh',
-      layout: layouts[0],
+      label: 'Bind Group: Constants for Skinned Standard Mesh',
+      layout: SkinnedStandardBindGroupFactory.layouts[0],
       entries: [{
         binding: 0,
         resource: { buffer: modelMatrixBuffer }
@@ -371,8 +672,8 @@ class SkinnedStandardMaterialBindGroupFactor extends BindGroupFactor {
     );
 
     const materialBindGroup = this.device.createBindGroup({
-      label: 'Bind Group: Textures for Mesh Material',
-      layout: layouts[1],
+      label: 'Bind Group: Textures for Skinned Standard Mesh Material',
+      layout: SkinnedStandardBindGroupFactory.layouts[1],
       entries: [{
         binding: 0,
         resource: sampler
@@ -389,7 +690,7 @@ class SkinnedStandardMaterialBindGroupFactor extends BindGroupFactor {
     });
 
     return {
-      updateResources: { modelMatrixBuffer, boneMatricesBuffer },
+      updateResources: { modelMatrixBuffer, boneMatricesBuffer } as SkinnedUpdateResource,
       groups: [constantBindGroup, materialBindGroup]
     };
 
@@ -397,4 +698,9 @@ class SkinnedStandardMaterialBindGroupFactor extends BindGroupFactor {
 
 }
 
-export { ResourcesForScene, ResourcesForMesh, BindGroupFactor, SkinnedStandardMaterialBindGroupFactor };
+export type { ResourceType, SceneUpdateResource, BasicUpdateResource, SkinnedUpdateResource };
+
+export {
+  BindGroupFactory, GlobalBindGroupFactory, BasicBindGroupFactory, 
+  SkinnedBasicBindGroupFactory, SkinnedStandardBindGroupFactory 
+};

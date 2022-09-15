@@ -3,11 +3,9 @@ import * as THREE from 'three';
 import { computeMikkTSpaceTangents } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import * as MikkTSpace from 'three/examples/jsm/libs/mikktspace.module.js'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
+import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { Renderer } from './renderer/renderer';
-
-import vertexShaderCode from './shaders/vertex.wgsl?raw'; // vite feature
-import fragmentShaderCode from './shaders/fragment.wgsl?raw'; // vite feature
 
 class Main {
 
@@ -15,6 +13,7 @@ class Main {
   renderer: Renderer;
   mixer: THREE.AnimationMixer;
   clock: THREE.Clock;
+  scene: THREE.Scene;
 
   constructor() {
 
@@ -23,13 +22,11 @@ class Main {
 
   }
 
-  async start() {
-
-    const resource = await this.init();
+  start() {
 
     const render = () => {
-      this.renderer.update(resource.updateInfo);
-      this.renderer.draw(resource.pipelines);
+      this.renderer.update();
+      this.renderer.draw();
       requestAnimationFrame(render);
     }
 
@@ -40,80 +37,65 @@ class Main {
   async init() {
 
     await this.renderer.initWebGPU();
-    const scene = await this.initScene();
-    const sceneResource = await this.renderer.initSceneResource(scene.camera, scene.light);
-    const meshResource = await this.renderer.initSkinnedMeshResource(scene.mesh, scene.camera);
-    const pipeline = await this.renderer.initSkinnedMeshPipeline({ 
-      vertexBuffer: meshResource.vertexBuffer.layouts,
-      bindGroup: [...sceneResource.layouts, ...meshResource.bindGroup.layouts]
-    }, {
-      vertexShader: vertexShaderCode,
-      fragmentShader: fragmentShaderCode
-    });
-
-    return {
-      pipelines: [{
-        pipeline: pipeline,
-        data: {
-          vertexCount: scene.mesh.geometry.attributes.position.count,
-          vertexBuffers: meshResource.vertexBuffer.buffers,
-          bindGroups: [...sceneResource.groups, ...meshResource.bindGroup.groups]
-        }
-      }],
-      updateInfo: {
-        scene: {
-          camera: scene.camera,
-          updateResources: sceneResource.updateResources
-        },
-        mesh: [{
-          mesh: scene.mesh,
-          updateResources: meshResource.bindGroup.updateResources
-        }]
-      }
-    };
-
+    await this.initScene();
+    await this.renderer.initPipeline(this.scene);
 
   }
 
   async initScene() {
 
+    // scene
+    this.scene = new THREE.Scene();
+
+    // clock
+    this.clock = new THREE.Clock();
+
     // camera
     let camera = new THREE.PerspectiveCamera( 50, window.innerWidth / window.innerHeight, 0.1, 5000 );
     camera.position.set( 3, 3, 3 );
     camera.lookAt( 0, 0, 0 );
+    this.scene.add(camera)
+    new OrbitControls(camera, this.canvas); // controls
 
     // light 
     let light = new THREE.PointLight(0xffffff, 1, 100);
+    this.scene.add(light);
     light.position.set( 0, 5, 5 );
 
-    // controls
-    new OrbitControls(camera, this.canvas);
-
     // mesh
-    const glb = await this.loadGLB('test/male.glb');
-    const mesh = glb.scene.children[2] as THREE.SkinnedMesh;
-    const material = mesh.material as THREE.MeshStandardMaterial;
-    material.normalMap = await this.loadTexture('test/normal_map.jpg');
-    material.metalnessMap = await this.loadTexture('test/spec_map.jpg');
+    {
+      const glb = await this.loadGLB('test/male.glb');
+      const mesh = glb.scene.children[2] as THREE.SkinnedMesh;
+      const material = mesh.material as THREE.MeshStandardMaterial;
+      material.normalMap = await this.loadTexture('test/normal_map.jpg');
+      material.metalnessMap = await this.loadTexture('test/spec_map.jpg');
 
-    // calculate tangent
-    await MikkTSpace.ready;
-    const mikkTSpace = {
-      wasm: MikkTSpace.wasm,
-      isReady: MikkTSpace.isReady,
-      generateTangents: MikkTSpace.generateTangents
+      // calculate tangent
+      await MikkTSpace.ready;
+      const mikkTSpace = {
+        wasm: MikkTSpace.wasm,
+        isReady: MikkTSpace.isReady,
+        generateTangents: MikkTSpace.generateTangents
+      }
+      computeMikkTSpaceTangents(mesh.geometry, mikkTSpace);
+
+      // animation
+      this.mixer = new THREE.AnimationMixer(mesh);
+      this.scene.add(mesh);
     }
-    computeMikkTSpaceTangents(mesh.geometry, mikkTSpace);
-    console.log(mesh) //
 
-    // animation
-    this.mixer = new THREE.AnimationMixer(mesh);
-    // const action = this.mixer.clipAction(glb.animations[0])
+    {
+      const fbx = await this.loadFBX('genshin/ying.fbx');
+      console.log(fbx);
+    }
 
-    // clock
-    this.clock = new THREE.Clock();
-  
-    return { camera, light, mesh };
+    {
+      const geometry = new THREE.BoxGeometry( 0.5, 0.5, 0.5 );
+      const material = new THREE.MeshBasicMaterial({color: 0xffffff});
+      const mesh = new THREE.Mesh( geometry, material );
+      mesh.position.set(0, 5, 5);
+      this.scene.add(mesh);
+    }
 
   }
 
@@ -124,6 +106,23 @@ class Main {
       reject: (event: ErrorEvent) => void
     ) => { 
       const modelLoader = new GLTFLoader();
+      modelLoader.load( 
+        path, 
+        gltf => { resolve( gltf ); }, // onLoad
+        null, // onProgress
+        error => reject(error) // onError
+      );
+    });
+
+  }
+
+  loadFBX( path: string ) {
+
+    return new Promise((
+      resolve: (gltf: any) => void, 
+      reject: (event: ErrorEvent) => void
+    ) => { 
+      const modelLoader = new FBXLoader();
       modelLoader.load( 
         path, 
         gltf => { resolve( gltf ); }, // onLoad
@@ -156,4 +155,4 @@ class Main {
 }
 
 const main = new Main();
-main.start();
+main.init().then(() => main.start());
