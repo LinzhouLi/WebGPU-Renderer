@@ -7,8 +7,8 @@ import {
 
 import BasicVertShader from '../shaders/basic.vert.wgsl?raw'; // vite feature
 import BasicFragShader from '../shaders/basic.frag.wgsl?raw';
-import SkinnedBasicVertShader from '../shaders/skinnedStandard.vert.wgsl?raw';
-import SkinnedBasicFragShader from '../shaders/skinnedStandard.frag.wgsl?raw';
+import SkinnedBasicVertShader from '../shaders/skinnedBasic.vert.wgsl?raw';
+import SkinnedBasicFragShader from '../shaders/skinnedBasic.frag.wgsl?raw';
 import SkinnedStandardVertShader from '../shaders/skinnedStandard.vert.wgsl?raw';
 import SkinnedStandardFragShader from '../shaders/skinnedStandard.frag.wgsl?raw';
 

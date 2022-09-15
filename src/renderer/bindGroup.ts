@@ -457,6 +457,8 @@ class SkinnedBasicBindGroupFactory extends BindGroupFactory {
 
     // texture
     let textureBitmap = material.map.source.data;
+    if (!(textureBitmap instanceof ImageBitmap))
+      textureBitmap = await createImageBitmap(textureBitmap);
     const textureSize = [textureBitmap.width, textureBitmap.height];
     const texture = this.device.createTexture({
       size: textureSize,

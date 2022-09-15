@@ -6,6 +6,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { Renderer } from './renderer/renderer';
+import { MeshPhongMaterial } from 'three';
 
 class Main {
 
@@ -81,12 +82,16 @@ class Main {
 
       // animation
       this.mixer = new THREE.AnimationMixer(mesh);
-      this.scene.add(mesh);
     }
 
     {
-      const fbx = await this.loadFBX('genshin/ying.fbx');
-      console.log(fbx);
+      const glb = await this.loadGLB('genshin/ying.gltf');
+      const mesh = glb.scene.children[0].children[1];
+      const material = new MeshPhongMaterial();
+      material.map = mesh.material.map;
+      mesh.material = material;
+      console.log(mesh);
+      this.scene.add(mesh);
     }
 
     {

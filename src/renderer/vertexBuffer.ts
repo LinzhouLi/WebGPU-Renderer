@@ -114,7 +114,13 @@ class VertexBufferFactory {
     // index
     if (geometry.index) {
 
-      const bufferDataArray = geometry.index.array as TypedArray;
+      let bufferDataArray = geometry.index.array as Uint16Array;
+      if (!(bufferDataArray instanceof Uint16Array))
+        throw new Error('Index Array is Not Uint16Array');
+      if (bufferDataArray.byteLength % 4 != 0) {
+        // Number of bytes to write must be a multiple of 4
+        bufferDataArray = new Uint16Array([...bufferDataArray, 0]);
+      }
       vertexBuffer.index = this.device.createBuffer({
         label: 'GPUBuffer store vertex index',
         size: bufferDataArray.byteLength,
