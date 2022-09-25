@@ -6,6 +6,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { Renderer } from './renderer/renderer';
+import { MeshPhongMaterial } from 'three';
 
 class Main {
 
@@ -23,7 +24,7 @@ class Main {
   }
 
   start() {
-    
+
     const render = () => {
       this.renderer.update();
       this.renderer.draw();
@@ -38,7 +39,7 @@ class Main {
 
     await this.renderer.initWebGPU();
     await this.initScene();
-    await this.renderer.initScene(this.scene);
+    await this.renderer.initPipeline(this.scene);
 
   }
 
@@ -86,10 +87,10 @@ class Main {
     {
       const glb = await this.loadGLB('genshin/ying.gltf');
       const mesh = glb.scene.children[0].children[1];
-      const material = new THREE.MeshPhongMaterial();
+      const material = new MeshPhongMaterial();
       material.map = mesh.material.map;
       mesh.material = material;
-      // console.log(mesh);
+      console.log(mesh);
       this.scene.add(mesh);
     }
 
@@ -98,15 +99,7 @@ class Main {
       const material = new THREE.MeshBasicMaterial({color: 0xffffff});
       const mesh = new THREE.Mesh( geometry, material );
       mesh.position.set(0, 5, 5);
-      // this.scene.add(mesh);
-    }
-
-    {
-      const geometry = new THREE.PlaneGeometry( 4, 4 );
-      const material = new THREE.MeshBasicMaterial({color: 0xffffff});
-      const mesh = new THREE.Mesh( geometry, material );
-      mesh.rotation.set(-Math.PI / 2, 0, 0);
-      this.scene.add( mesh );
+      this.scene.add(mesh);
     }
 
   }

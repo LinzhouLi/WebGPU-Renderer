@@ -1,13 +1,17 @@
-abstract class RenderComponentBase {
+import { VertexBufferFactory } from './vertexBuffer';
+import { ResourceFactory } from './resuorce';
+import { BindGroupFactory } from './bindGroup';
 
-  protected device: GPUDevice;
+type TypedArray = Float64Array | Float32Array | Int32Array | Uint32Array | Int16Array | Uint16Array | Int8Array | Uint8Array;
 
-  constructor(device: GPUDevice) {
+const vertexBufferFactory = new VertexBufferFactory();
+const resourceFactory = new ResourceFactory();
+const bindGroupFactory = new BindGroupFactory();
 
-    this.device = device
+export type { TypedArray };
 
-  }
-
-}
-
-export { RenderComponentBase };
+export {
+  vertexBufferFactory,
+  resourceFactory,
+  bindGroupFactory
+};

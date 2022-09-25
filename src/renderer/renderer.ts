@@ -1,32 +1,21 @@
 import * as THREE from 'three';
+import { RenderableObject } from './renderableObject'
 
-import { 
-  BasicRenderPipelineFactory, SkinnedBasicRenderPipelineFactory, 
-  SkinnedStandardRenderPipelineFactory
-} from './pipeline';
-import { RenderObject, RenderObjects } from './renderObjects';
+let device: GPUDevice;
+let canvasFormat: GPUTextureFormat;
 
 class Renderer {
 
   // basic
   adapter: GPUAdapter;
-  device: GPUDevice;
   size: { width: number, height: number };
   canvas: HTMLCanvasElement;
   context: GPUCanvasContext;
-  canvasTargetFormat: GPUTextureFormat;
 
-  depthView: GPUTextureView;
-
-  // pipelines
-  pipelines: {
-    basic: GPURenderPipeline | null,
-    skinnedBasic: GPURenderPipeline | null,
-    skinnedStandard: GPURenderPipeline | null
-  }
-
-  // render objects
-  renderObjects: RenderObjects;
+  // resource
+  renderableObj: RenderableObject;
+  shadowMap: GPUTexture;
+  renderDepthMap: GPUTexture;
 
   constructor(canvas: HTMLCanvasElement) {
 
@@ -44,9 +33,9 @@ class Renderer {
     });
     if (!adapter) throw new Error('No Adapter Found');
     this.adapter = adapter;
-
+    console.log(adapter)
     // device
-    this.device = await adapter.requestDevice();
+    device = await adapter.requestDevice();
 
     // context
     const context = this.canvas.getContext('webgpu');
@@ -60,122 +49,82 @@ class Renderer {
     this.size = { width: this.canvas.width, height: this.canvas.height };
 
     // format
-    this.canvasTargetFormat = navigator.gpu.getPreferredCanvasFormat();
+    canvasFormat = navigator.gpu.getPreferredCanvasFormat();
     context.configure({
-      device: this.device, 
-      format: this.canvasTargetFormat,
+      device: device, 
+      usage: GPUTextureUsage.RENDER_ATTACHMENT,
+      format: canvasFormat,
       alphaMode: 'opaque' // prevent chrome warning
     })
 
   }
 
-  async initPipeline(scene: THREE.Scene) {
+  async initScene(scene: THREE.Scene) {
 
-    const depthTexture = this.device.createTexture({
-      size: this.size, 
-      format: 'depth24plus',
+    this.renderableObj = new RenderableObject();
+
+    this.renderableObj.initScene(scene);
+    await this.renderableObj.initResources();
+    await this.renderableObj.initRenderPass();
+    // await this.renderableObj.initShadowPass();
+
+    this.shadowMap = this.renderableObj.globalObject.bindGroupResources.shadowMap as GPUTexture;
+    this.renderDepthMap = device.createTexture({
+      label: 'Render Depth Map',
+      size: this.size,
       usage: GPUTextureUsage.RENDER_ATTACHMENT,
-    })
-    this.depthView = depthTexture.createView()
-
-    this.pipelines = {
-      basic: null,
-      skinnedBasic: null,
-      skinnedStandard: null
-    };
-
-    this.renderObjects = new RenderObjects(this.device);
-    await this.renderObjects.init(scene);
-    
-    if (this.renderObjects.basic.length > 0) {
-      const pipelineFactory = new BasicRenderPipelineFactory(this.device);
-      this.pipelines.basic = await pipelineFactory.create(this.canvasTargetFormat);
-    }
-    
-    if (this.renderObjects.skinnedBasic.length > 0) {
-      const pipelineFactory = new SkinnedBasicRenderPipelineFactory(this.device);
-      this.pipelines.skinnedBasic = await pipelineFactory.create(this.canvasTargetFormat);
-    }
-    
-    if (this.renderObjects.skinnedStandard.length > 0) {
-      const pipelineFactory = new SkinnedStandardRenderPipelineFactory(this.device);
-      this.pipelines.skinnedStandard = await pipelineFactory.create(this.canvasTargetFormat);
-    }
-    
-  }
-
-  update() {
-
-    this.renderObjects.update();
+      format: 'depth32float'
+    });
 
   }
 
   draw() {
 
-    const commandEncoder = this.device.createCommandEncoder();
+    const commandEncoder = device.createCommandEncoder()
+
+    // // shadow pass
+    // const shadowPassEncoder = commandEncoder.beginRenderPass({
+    //   colorAttachments: [],
+    //   depthStencilAttachment: {
+    //     view: this.shadowMap.createView(),
+    //     depthClearValue: 1.0,
+    //     depthLoadOp: 'clear',
+    //     depthStoreOp: 'store',
+    //   }
+    // });
+    // shadowPassEncoder.executeBundles([this.renderableObj.shadowBundle]);
+    // shadowPassEncoder.end();
+
+    // render pass
     const renderPassEncoder = commandEncoder.beginRenderPass({
       colorAttachments: [{
-        view: this.context.getCurrentTexture().createView(), // output view buffer
-        loadOp: 'clear', // operation to view before drawing: clear/load
-        clearValue: { r: 0, g: 0, b: 0, a: 1 }, // color to clear
-        storeOp: 'store' // operation to view after drawing: discard/store
+        view: this.context.getCurrentTexture().createView(),
+        clearValue: { r: 0, g: 0, b: 0, a: 1.0 },
+        loadOp: 'clear',
+        storeOp: 'store'
       }],
       depthStencilAttachment: {
-        view: this.depthView,
-        depthLoadOp: 'clear',
+        view: this.renderDepthMap.createView(),
         depthClearValue: 1.0,
-        depthStoreOp: 'store'
+        depthLoadOp: 'clear',
+        depthStoreOp: 'store',
       }
     });
 
-    for (const key in this.pipelines) { // change pipeline
-
-      const pipeline = this.pipelines[key] as GPURenderPipeline;
-
-      if (pipeline) {
-
-        renderPassEncoder.setPipeline(pipeline);
-
-        const renderObjects = this.renderObjects[key] as RenderObject[];
-
-        for (const renderObject of renderObjects) { // change render object (mesh)
-
-          // set vertex buffer slots
-          let slotIndex = 0;
-          for (const vertexBuffer of renderObject.vertexBuffer.attributes) {
-            if (vertexBuffer) {
-              renderPassEncoder.setVertexBuffer(slotIndex, vertexBuffer);
-            }
-            slotIndex++;
-          }
-
-          // set bind group
-          let groupIndex = 0;
-          for (const group of renderObject.groups) {
-            renderPassEncoder.setBindGroup(groupIndex, group);
-            groupIndex++;
-          }
-
-          // set index buffer and draw
-          if (renderObject.vertexBuffer.index) {
-            renderPassEncoder.setIndexBuffer(renderObject.vertexBuffer.index, 'uint16');
-            renderPassEncoder.drawIndexed(renderObject.vertexBuffer.vertexCount);
-          }
-          else
-            renderPassEncoder.draw(renderObject.vertexBuffer.vertexCount);
-
-        }
-
-      }
-
-    }
-
+    renderPassEncoder.executeBundles([this.renderableObj.renderBundle]);
     renderPassEncoder.end();
+
     const commandBuffer = commandEncoder.finish();
-    this.device.queue.submit([commandBuffer]);
+    device.queue.submit([commandBuffer]);
+
+  }
+
+  update() {
+
+    this.renderableObj.update();
 
   }
 
 }
 
-export { Renderer };
+export { Renderer, device, canvasFormat };

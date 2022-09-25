@@ -1,191 +1,104 @@
-import { RenderComponentBase } from './base';
+import { device, canvasFormat } from './renderer';
+import { 
+  vertexBufferFactory,
+  globalGroupFactory,
+  objectGroupFactory  
+} from './base';
+import { createVertexShaderCode } from './vertexShader';
+import { createFragmentShaderCode } from './fragmentShader';
 
-import {
-  BasicRenderObject, SkinnedBasicRenderObject, 
-  SkinnedStandardRenderObject 
-} from './renderObjects';
+class PipelineFactory {
 
-import BasicVertShader from '../shaders/basic.vert.wgsl?raw'; // vite feature
-import BasicFragShader from '../shaders/basic.frag.wgsl?raw';
-import SkinnedBasicVertShader from '../shaders/skinnedBasic.vert.wgsl?raw';
-import SkinnedBasicFragShader from '../shaders/skinnedBasic.frag.wgsl?raw';
-import SkinnedStandardVertShader from '../shaders/skinnedStandard.vert.wgsl?raw';
-import SkinnedStandardFragShader from '../shaders/skinnedStandard.frag.wgsl?raw';
-
-
-abstract class PipelineFactory extends RenderComponentBase {
-
-  pipeline: GPUPipelineBase | null;
-
-  constructor(device: GPUDevice) {
-
-    super(device);
-
-    this.pipeline = null;
+  constructor() {
 
   }
 
-}
+  async createShadowPipline(
+    vertexBufferType: number,
+    bindGroupType: number
+  ) {
 
-abstract class RenderPipelineFactory extends PipelineFactory {
+    let globalGroupLayout = globalGroupFactory.createLayout();
+    let objectGroup = objectGroupFactory.createLayout(bindGroupType);
+    let vertexBufferLayout = vertexBufferFactory.createLayout(vertexBufferType);
 
-  declare pipeline: GPURenderPipeline;
-
-  constructor(device: GPUDevice) {
-
-    super(device);
-
-  }
-
-  abstract create(targetFormat: GPUTextureFormat): Promise<GPURenderPipeline>;
-
-}
-
-
-class BasicRenderPipelineFactory extends RenderPipelineFactory {
-
-
-  constructor(device: GPUDevice) {
-
-    super(device);
-
-  }
-
-  async create(targetFormat: GPUTextureFormat) {
-
-    if (this.pipeline) return this.pipeline;
-
-    this.pipeline = await this.device.createRenderPipelineAsync({
-      label: 'Render Pipeline (Basic)',
-      layout: this.device.createPipelineLayout({
-        bindGroupLayouts: BasicRenderObject.bindGroupLayouts
+    let pipeline = await device.createRenderPipelineAsync({
+      label: 'Shadow Pipeline',
+      layout: device.createPipelineLayout({bindGroupLayouts: 
+        [globalGroupLayout.global, objectGroup.transform]
       }),
       vertex: {
-        module: this.device.createShaderModule({ code: BasicVertShader }),
+        module: device.createShaderModule({ 
+          code: createVertexShaderCode(vertexBufferType, true) // ifSahdowPass = true
+        }),
         entryPoint: 'main',
-        buffers: BasicRenderObject.vertexBufferLayouts
+        buffers: vertexBufferLayout
+      },
+      primitive: {
+        topology: 'triangle-list',
+        cullMode: 'back'
+      }, 
+      depthStencil: {
+        depthWriteEnabled: true,
+        depthCompare: 'less',
+        format: 'depth32float'
+      }
+    });
+
+    return pipeline;
+
+  }
+
+  async createRenderPipeline(
+    vertexBufferType: number,
+    bindGroupType: number
+  ) {
+
+    let bindGroupLayouts: GPUBindGroupLayout[] = [];
+
+    let globalGroup = globalGroupFactory.createLayout();
+    for (let key in globalGroup)
+      bindGroupLayouts.push(globalGroup[key]);
+    let objectGroup = objectGroupFactory.createLayout(bindGroupType);
+    for (let key in objectGroup)
+      bindGroupLayouts.push(objectGroup[key]);
+
+    let vertexBufferLayout = vertexBufferFactory.createLayout(vertexBufferType);
+
+    let pipeline = await device.createRenderPipelineAsync({
+      label: 'Render Pipeline',
+      layout: device.createPipelineLayout({ bindGroupLayouts: bindGroupLayouts }),
+      vertex: {
+        module: device.createShaderModule({ 
+          code: createVertexShaderCode(vertexBufferType, false) // ifSahdowPass = false
+        }),
+        entryPoint: 'main',
+        buffers: vertexBufferLayout
       },
       fragment: {
-        module: this.device.createShaderModule({ code: BasicFragShader }),
+        module: device.createShaderModule({ code: 
+          createFragmentShaderCode(vertexBufferType, bindGroupType, 'Phong') 
+        }),
         entryPoint: 'main',
         targets: [{
-          format: targetFormat
+          format: canvasFormat
         }]
       },
       primitive: {
         topology: 'triangle-list',
         cullMode: 'back'
-      },
+      }, 
       depthStencil: {
         depthWriteEnabled: true,
         depthCompare: 'less',
-        format: 'depth24plus',
+        format: 'depth32float'
       }
     });
 
-    return this.pipeline;
+    return pipeline;
 
   }
 
 }
 
-
-class SkinnedBasicRenderPipelineFactory extends RenderPipelineFactory {
-
-
-  constructor(device: GPUDevice) {
-
-    super(device);
-
-  }
-
-  async create(targetFormat: GPUTextureFormat) {
-
-    if (this.pipeline) return this.pipeline;
-
-    this.pipeline = await this.device.createRenderPipelineAsync({
-      label: 'Render Pipeline (SkinnedBasic)',
-      layout: this.device.createPipelineLayout({
-        bindGroupLayouts: SkinnedBasicRenderObject.bindGroupLayouts
-      }),
-      vertex: {
-        module: this.device.createShaderModule({ code: SkinnedBasicVertShader }),
-        entryPoint: 'main',
-        buffers: SkinnedBasicRenderObject.vertexBufferLayouts
-      },
-      fragment: {
-        module: this.device.createShaderModule({ code: SkinnedBasicFragShader }),
-        entryPoint: 'main',
-        targets: [{
-          format: targetFormat
-        }]
-      },
-      primitive: {
-        topology: 'triangle-list',
-        cullMode: 'back'
-      },
-      depthStencil: {
-        depthWriteEnabled: true,
-        depthCompare: 'less',
-        format: 'depth24plus',
-      }
-    });
-
-    return this.pipeline;
-
-  }
-
-}
-
-
-class SkinnedStandardRenderPipelineFactory extends RenderPipelineFactory {
-
-
-  constructor(device: GPUDevice) {
-
-    super(device);
-
-  }
-
-  async create(targetFormat: GPUTextureFormat) {
-
-    if (this.pipeline) return this.pipeline;
-
-    this.pipeline = await this.device.createRenderPipelineAsync({
-      label: 'Render Pipeline (SkinnedStandard)',
-      layout: this.device.createPipelineLayout({
-        bindGroupLayouts: SkinnedStandardRenderObject.bindGroupLayouts
-      }),
-      vertex: {
-        module: this.device.createShaderModule({ code: SkinnedStandardVertShader }),
-        entryPoint: 'main',
-        buffers: SkinnedStandardRenderObject.vertexBufferLayouts
-      },
-      fragment: {
-        module: this.device.createShaderModule({ code: SkinnedStandardFragShader }),
-        entryPoint: 'main',
-        targets: [{
-          format: targetFormat
-        }]
-      },
-      primitive: {
-        topology: 'triangle-list',
-        cullMode: 'back'
-      },
-      depthStencil: {
-        depthWriteEnabled: true,
-        depthCompare: 'less',
-        format: 'depth24plus',
-      }
-    });
-
-    return this.pipeline;
-
-  }
-  
-}
-
-export { 
-  BasicRenderPipelineFactory, SkinnedBasicRenderPipelineFactory, 
-  SkinnedStandardRenderPipelineFactory 
-};
+export { PipelineFactory };
