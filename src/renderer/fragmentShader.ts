@@ -12,8 +12,8 @@ export function createFragmentShader(attributes: string[], type: string = 'phong
 @group(0) @binding(2) var<uniform> cameraPosition: vec3<f32>;
 
 @group(0) @binding(4) var<uniform> lightPosition: vec3<f32>;
-// @group(0) @binding(5) var shadowSampler: sampler_comparison;
-// @group(0) @binding(6) var shadowMap: texture_depth_2d;
+@group(0) @binding(5) var shadowSampler: sampler_comparison;
+@group(0) @binding(6) var shadowMap: texture_depth_2d;
 
 @group(1) @binding(2) var<uniform> color: vec3<f32>;
 @group(1) @binding(3) var texSampler: sampler;
@@ -22,6 +22,7 @@ export function createFragmentShader(attributes: string[], type: string = 'phong
 #endif
 
 const lightColor = vec3<f32>(1.0, 1.0, 1.0);
+const bias = 0.005;
 
 @fragment
 fn main(
@@ -29,6 +30,7 @@ fn main(
   @location(0) fragPosition : vec3<f32>,
   @location(1) fragNormal : vec3<f32>,
   @location(2) fragUV: vec2<f32>,
+  @location(3) shadowPos: vec4<f32>
 ) -> @location(0) vec4<f32> {
 
   // let biNormal = normalize(cross(fragNormal, fragTangent));
@@ -44,6 +46,15 @@ fn main(
   let albedo = color;
 #endif
 
+  // shadow
+  let shadow = textureSampleCompare(
+    shadowMap, 
+    shadowSampler, 
+    shadowPos.xy / shadowPos.w * vec2<f32>(0.5, -0.5) + 0.5,  // Convert shadowPos XY to (0, 1) to fit texture UV
+    shadowPos.z / shadowPos.w - bias
+  );
+
+  // Blinn-Phong
   let lightDir = normalize(lightPosition - fragPosition);
   let viewDir = normalize(cameraPosition - fragPosition);
   let halfVec = normalize(lightDir + viewDir);
@@ -56,10 +67,27 @@ fn main(
   let spec = pow(max(dot(normal, halfVec), 0.0), 32);
   let specular = spec * lightColor * albedo;
 
-  return vec4<f32>(ambient + diffuse + specular,1.0);
+  return vec4<f32>(shadow * (ambient + diffuse + specular), 1.0);
 
   // let metalness = textureSample(metalnessMap, texSampler, fragUV);
   // return textureSample(texture, linearSampler, fragUV);
+
+}
+`
+  }
+  else if (type === 'skybox') {
+    code = wgsl
+/* wgsl */`
+@group(0) @binding(2) var texSampler: sampler;
+@group(0) @binding(3) var skyboxMap: texture_cube<f32>;
+
+@fragment
+fn main(
+  @builtin(position) position : vec4<f32>,
+  @location(0) fragPosition : vec3<f32>,
+) -> @location(0) vec4<f32> {
+
+  return textureSample(skyboxMap, texSampler, fragPosition);
 
 }
 `

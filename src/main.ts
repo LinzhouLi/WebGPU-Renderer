@@ -46,6 +46,12 @@ class Main {
 
     // scene
     this.scene = new THREE.Scene();
+    this.scene.background = await this.loadCubeTexture([
+      "skybox/right.jpg", "skybox/left.jpg", // px nx
+      "skybox/top.jpg", "skybox/bottom.jpg", // py ny
+      "skybox/front.jpg", "skybox/back.jpg"  // pz nz
+    ]);
+    console.log(this.scene)
 
     // clock
     this.clock = new THREE.Clock();
@@ -59,8 +65,11 @@ class Main {
 
     // light 
     let light = new THREE.PointLight(0xffffff, 1, 100);
+    light.shadow.camera = new THREE.PerspectiveCamera(50, 1, 1, 10);
+    light.shadow.camera.position.set( 0, 3, 3 );
+    light.shadow.camera.lookAt( 0, 0, 0 );
+    light.position.set( 0, 3, 3 );
     this.scene.add(light);
-    light.position.set( 0, 5, 5 );
 
     // mesh
     {
@@ -108,7 +117,7 @@ class Main {
       mesh.rotation.set(-Math.PI / 2, 0, 0);
       this.scene.add( mesh );
     }
-
+    
   }
 
   loadGLB( path: string ) {
@@ -150,7 +159,7 @@ class Main {
     return new Promise((
       resolve: (texture: THREE.Texture) => void, 
       reject: (event: ErrorEvent) => void
-    )=> {
+    ) => {
       new THREE.TextureLoader().load(
         path,
         texture => { // onLoad
@@ -162,6 +171,22 @@ class Main {
       )
     });
   
+  }
+
+  loadCubeTexture( paths: string[] ) {
+
+    return new Promise((
+      resolve: (cubeTexture: THREE.CubeTexture) => void,
+      reject: (event: ErrorEvent) => void
+    ) => {
+      new THREE.CubeTextureLoader().load(
+        paths,
+        texture => resolve(texture),  // onLoad
+        null, // onProgress
+        error => reject(error) // onError
+      )
+    });
+
   }
 
 }

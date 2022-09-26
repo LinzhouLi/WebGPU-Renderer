@@ -86,8 +86,11 @@ class RenderableObject {
 
     this.scene.updateMatrixWorld();
     this.camera.updateProjectionMatrix();
-    this.light.shadow.camera.updateProjectionMatrix();
 
+    this.light.shadow.camera.position.setFromMatrixPosition( this.light.matrixWorld );
+    this.light.shadow.camera.updateMatrixWorld();
+    this.light.shadow.camera.updateProjectionMatrix();
+    
   }
 
   initScene(scene: THREE.Scene) {
@@ -117,7 +120,7 @@ class RenderableObject {
     
     if (this.camera === null) throw new Error('No Camera');
     if (this.light === null) throw new Error('No Light');
-    this.globalObject = new GlobalObject(this.camera, this.light);
+    this.globalObject = new GlobalObject(this.camera, this.light, this.scene);
 
   }
 
@@ -126,6 +129,7 @@ class RenderableObject {
     // update information
     this.updateMatrix();
 
+    this.globalObject.initVertexBuffer();
     await this.globalObject.initGroupResource();
     for (const meshObject of this.meshList) {
       meshObject.initVertexBuffer();
@@ -147,6 +151,7 @@ class RenderableObject {
     for (const meshObject of this.meshList) {
       await meshObject.setRenderBundle(renderBundleEncoder, [layout], [group]);
     }
+    await this.globalObject.setRenderBundle(renderBundleEncoder); // 最后一步绘制天空盒
 
     this.renderBundle = renderBundleEncoder.finish();
 
@@ -163,7 +168,7 @@ class RenderableObject {
     });
 
     for (const meshObject of this.meshList) {
-      meshObject.setShadowBundle(shadowBundleEncoder, [layout], [group]);
+      await meshObject.setShadowBundle(shadowBundleEncoder, [layout], [group]);
     }
 
     this.shadowBundle = shadowBundleEncoder.finish();

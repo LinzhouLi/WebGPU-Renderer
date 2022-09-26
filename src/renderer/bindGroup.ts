@@ -64,23 +64,37 @@ class BindGroupFactory {
       if (!data[attribute])
         throw new Error(`Resource '${attribute}' Not Exist`);
 
-      if (ResourceFormat[attribute].buffer) { // GPU buffer
-        entries.push({
-          binding: bindIndex,
-          resource: { buffer: data[attribute] as GPUBuffer }
-        });
-      }
-      else if (ResourceFormat[attribute].sampler) { // GPU sampler
-        entries.push({
-          binding: bindIndex,
-          resource: data[attribute] as GPUSampler
-        });
-      }
-      else if (ResourceFormat[attribute].texture) { // GPU texture
-        entries.push({
-          binding: bindIndex,
-          resource: (data[attribute] as GPUTexture).createView()
-        });
+
+      switch(ResourceFormat[attribute].type) {
+        case 'buffer': { // GPU buffer
+          entries.push({
+            binding: bindIndex,
+            resource: { buffer: data[attribute] as GPUBuffer }
+          });
+          break;
+        }
+        case 'sampler': { // GPU sampler
+          entries.push({
+            binding: bindIndex,
+            resource: data[attribute] as GPUSampler
+          });
+          break;
+        }
+        case 'texture': { // GPU texture
+          entries.push({
+            binding: bindIndex,
+            resource: (data[attribute] as GPUTexture).createView()
+          });
+          break;
+        }
+        case 'cube-texture': { // GPU cube texture
+          entries.push({
+            binding: bindIndex,
+            resource: (data[attribute] as GPUTexture).createView({ dimension: 'cube' })
+          });
+          break;
+        }
+        default: { }
       }
       bindIndex++;
 

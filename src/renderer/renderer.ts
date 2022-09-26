@@ -66,7 +66,7 @@ class Renderer {
     this.renderableObj.initScene(scene);
     await this.renderableObj.initResources();
     await this.renderableObj.initRenderPass();
-    // await this.renderableObj.initShadowPass();
+    await this.renderableObj.initShadowPass();
 
     this.shadowMap = this.renderableObj.globalObject.bindGroupResources.shadowMap as GPUTexture;
     this.renderDepthMap = device.createTexture({
@@ -82,23 +82,23 @@ class Renderer {
 
     const commandEncoder = device.createCommandEncoder()
 
-    // // shadow pass
-    // const shadowPassEncoder = commandEncoder.beginRenderPass({
-    //   colorAttachments: [],
-    //   depthStencilAttachment: {
-    //     view: this.shadowMap.createView(),
-    //     depthClearValue: 1.0,
-    //     depthLoadOp: 'clear',
-    //     depthStoreOp: 'store',
-    //   }
-    // });
-    // shadowPassEncoder.executeBundles([this.renderableObj.shadowBundle]);
-    // shadowPassEncoder.end();
+    // shadow pass
+    const shadowPassEncoder = commandEncoder.beginRenderPass({
+      colorAttachments: [],
+      depthStencilAttachment: {
+        view: this.shadowMap.createView(),
+        depthClearValue: 1.0,
+        depthLoadOp: 'clear',
+        depthStoreOp: 'store',
+      }
+    });
+    shadowPassEncoder.executeBundles([this.renderableObj.shadowBundle]);
+    shadowPassEncoder.end();
 
     // render pass
     const renderPassEncoder = commandEncoder.beginRenderPass({
       colorAttachments: [{
-        view: this.context.getCurrentTexture().createView(),
+        view: this.context.getCurrentTexture().createView(), // getCurrentTexture(): Destroyed texture [Texture] used in a submit
         clearValue: { r: 0, g: 0, b: 0, a: 1.0 },
         loadOp: 'clear',
         storeOp: 'store'
@@ -110,7 +110,6 @@ class Renderer {
         depthStoreOp: 'store',
       }
     });
-
     renderPassEncoder.executeBundles([this.renderableObj.renderBundle]);
     renderPassEncoder.end();
 

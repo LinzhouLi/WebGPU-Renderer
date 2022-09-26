@@ -106,9 +106,7 @@ class MeshObject {
           createFragmentShader([...this.vertexBufferAttributes, ...this.resourceAttributes], 'phong')
         }),
         entryPoint: 'main',
-        targets: [{
-          format: canvasFormat
-        }]
+        targets: [{ format: canvasFormat }]
       },
       primitive: {
         topology: 'triangle-list',
