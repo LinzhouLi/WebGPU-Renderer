@@ -66,9 +66,9 @@ class Main {
     // light 
     let light = new THREE.PointLight(0xffffff, 1, 100);
     light.shadow.camera = new THREE.PerspectiveCamera(50, 1, 1, 10);
-    light.shadow.camera.position.set( 0, 3, 3 );
+    light.shadow.camera.position.set( -3, 4, -3 );
     light.shadow.camera.lookAt( 0, 0, 0 );
-    light.position.set( 0, 3, 3 );
+    light.position.set( -3, 4, -3 );
     this.scene.add(light);
 
     // mesh
@@ -98,6 +98,7 @@ class Main {
       const material = new THREE.MeshPhongMaterial();
       material.map = mesh.material.map;
       mesh.material = material;
+      mesh.rotation.set(0, -0.75 * Math.PI, 0)
       // console.log(mesh);
       this.scene.add(mesh);
     }
@@ -111,10 +112,11 @@ class Main {
     }
 
     {
-      const geometry = new THREE.PlaneGeometry( 4, 4 );
+      const geometry = new THREE.PlaneGeometry( 6, 6 );
       const material = new THREE.MeshBasicMaterial({color: 0xffffff});
       const mesh = new THREE.Mesh( geometry, material );
       mesh.rotation.set(-Math.PI / 2, 0, 0);
+      mesh.position.set(1, 0, 1);
       this.scene.add( mesh );
     }
     
