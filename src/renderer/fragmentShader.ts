@@ -2,6 +2,7 @@ import { wgsl } from './wgsl-preprocessor';;
 
 export function createFragmentShader(attributes: string[], type: string = 'phong') {
 
+  const normalMap = attributes.includes('tangent') && attributes.includes('normalMap');
   const textureMap = attributes.includes('baseMap');
 
   let code: string;
@@ -19,6 +20,9 @@ export function createFragmentShader(attributes: string[], type: string = 'phong
 @group(1) @binding(3) var texSampler: sampler;
 #if ${textureMap}
 @group(1) @binding(4) var textureMap: texture_2d<f32>;
+#endif
+#if ${normalMap}
+@group(1) @binding(5) var normalMap: texture_2d<f32>;
 #endif
 
 const lightColor = vec3<f32>(1.0, 1.0, 1.0);
@@ -67,44 +71,10 @@ fn PCF(radius: f32, shadowCoords: vec3<f32>) -> f32 {
 }
 
 
-@fragment
-fn main(
-  @builtin(position) position : vec4<f32>,
-  @location(0) fragPosition : vec3<f32>,
-  @location(1) fragNormal : vec3<f32>,
-  @location(2) fragUV: vec2<f32>,
-  @location(3) shadowPos: vec4<f32>
-) -> @location(0) vec4<f32> {
+fn blinnPhong(position: vec3<f32>, normal: vec3<f32>, albedo: vec3<f32>) -> vec3<f32> {
 
-  // let biNormal = normalize(cross(fragNormal, fragTangent));
-  // let tbn = mat3x3<f32>(fragTangent, biNormal, fragNormal);
-  // let normal_del = textureSample(normalMap, texSampler, fragUV);
-  // let normal = normalize(tbn * normal_del.xyz);
-
-  let normal = fragNormal;
-
-#if ${textureMap}
-  let albedo = textureSample(textureMap, texSampler, fragUV).xyz * color;
-#else
-  let albedo = color;
-#endif
-
-  // shadow
-  // let shadow = textureSampleCompare(
-  //   shadowMap, 
-  //   shadowSampler, 
-  //   shadowPos.xy / shadowPos.w * vec2<f32>(0.5, -0.5) + 0.5,  // Convert shadowPos XY to (0, 1) to fit texture UV
-  //   shadowPos.z / shadowPos.w - bias
-  // );
-  let shadowCoords: vec3<f32> = vec3<f32>(
-    shadowPos.xy / shadowPos.w * vec2<f32>(0.5, -0.5) + 0.5, // Convert shadowPos XY to (0, 1) to fit texture UV
-    shadowPos.z / shadowPos.w
-  );
-  let shadow = PCF(5.0, shadowCoords);
-
-  // Blinn-Phong
-  let lightDir = normalize(lightPosition - fragPosition);
-  let viewDir = normalize(cameraPosition - fragPosition);
+  let lightDir = normalize(lightPosition - position);
+  let viewDir = normalize(cameraPosition - position);
   let halfVec = normalize(lightDir + viewDir);
 
   let ambient = albedo * lightColor * 0.2;
@@ -115,10 +85,57 @@ fn main(
   let spec = pow(max(dot(normal, halfVec), 0.0), 32);
   let specular = spec * lightColor * albedo;
 
-  return vec4<f32>(shadow * (ambient + diffuse + specular), 1.0);
+  return ambient + diffuse + specular;
 
-  // let metalness = textureSample(metalnessMap, texSampler, fragUV);
-  // return textureSample(texture, linearSampler, fragUV);
+}
+
+
+@fragment
+fn main(
+  @builtin(position) position: vec4<f32>,
+  @location(0) fragPosition: vec3<f32>,
+  @location(1) fragNormal: vec3<f32>,
+  @location(2) fragUV: vec2<f32>,
+  @location(3) shadowPos: vec4<f32>,
+#if ${normalMap}
+  @location(4) tangent: vec3<f32>,
+  @location(5) biTangent: vec3<f32>
+#endif
+) -> @location(0) vec4<f32> {
+
+  // normal
+#if ${normalMap}
+  let tbn: mat3x3<f32> = mat3x3<f32>(tangent, biTangent, fragNormal);
+  let normal_del: vec3<f32> = normalize(
+    textureSample(normalMap, texSampler, fragUV).xyz - vec3<f32>(0.5, 0.5, 0.5)
+  );
+  let normal = normalize(tbn * normal_del.xyz);
+#else
+  let normal = fragNormal;
+#endif
+
+  // blbedo
+#if ${textureMap}
+  let albedo = textureSample(textureMap, texSampler, fragUV).xyz * color;
+#else
+  let albedo = color;
+#endif
+
+  // shadow
+  let shadowCoords: vec3<f32> = vec3<f32>(
+    shadowPos.xy / shadowPos.w * vec2<f32>(0.5, -0.5) + 0.5, // Convert shadowPos XY to (0, 1) to fit texture UV
+    shadowPos.z / shadowPos.w
+  );
+  // let visibility = textureSampleCompare(
+  //   shadowMap, shadowSampler, 
+  //   shadowCoords.xy, shadowCoords.z - bias
+  // );
+  let visibility = PCF(5.0, shadowCoords);
+
+  // Blinn-Phong shading
+  let shadingColor: vec3<f32> = blinnPhong(fragPosition, normal, albedo);
+
+  return vec4<f32>(visibility * shadingColor, 1.0);
 
 }
 `

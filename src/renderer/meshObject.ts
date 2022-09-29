@@ -50,6 +50,11 @@ class MeshObject {
       this.vertexCount = this.mesh.geometry.attributes.position.count;
     }
 
+    if (!!this.mesh.geometry.attributes.tangent) {
+      this.vertexBufferAttributes.push('tangent');
+      this.vertexBufferData.tangent = this.mesh.geometry.attributes.tangent.array as TypedArray;
+    }
+
     this.vertexBuffers = vertexBufferFactory.createResource(this.vertexBufferAttributes, this.vertexBufferData);
 
   }
@@ -74,6 +79,11 @@ class MeshObject {
     if (!!material.map) {
       this.resourceAttributes.push('baseMap');
       this.resourceData.baseMap = material.map.source.data;
+    }
+
+    if (!!material.normalMap) {
+      this.resourceAttributes.push('normalMap');
+      this.resourceData.normalMap = material.normalMap.source.data;
     }
 
     this.resources = await resourceFactory.createResource(this.resourceAttributes, this.resourceData);

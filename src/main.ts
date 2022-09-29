@@ -90,6 +90,9 @@ class Main {
 
       // animation
       this.mixer = new THREE.AnimationMixer(mesh);
+      mesh.rotation.set(0, -0.75 * Math.PI, 0)
+      this.scene.add( mesh );
+      console.log(mesh)
     }
 
     {
@@ -100,7 +103,7 @@ class Main {
       mesh.material = material;
       mesh.rotation.set(0, -0.75 * Math.PI, 0)
       // console.log(mesh);
-      this.scene.add(mesh);
+      // this.scene.add(mesh);
     }
 
     {
