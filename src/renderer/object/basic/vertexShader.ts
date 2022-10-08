@@ -29,7 +29,7 @@ struct Transform {
 @group(0) @binding(0) var<uniform> camera: Camera;
 @group(0) @binding(1) var<uniform> pointLight: PointLight;
 
-@group(1) @binding(0) var<uniform> transform : Transform;
+@group(0) @binding(5) var<uniform> transform : Transform;
 
 struct VertexOutput {
   @builtin(position) position : vec4<f32>,
@@ -90,7 +90,7 @@ struct Transform {
 };
 
 @group(0) @binding(0) var<uniform> pointLight: PointLight;
-@group(1) @binding(0) var<uniform> transform: Transform;
+@group(0) @binding(1) var<uniform> transform: Transform;
 
 @vertex
 fn main( @location(0) position : vec3<f32>, ) -> @builtin(position) vec4<f32> {

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { RenderableObject } from './object/renderableObject'
+import { RenderController } from './controller'
 
 let device: GPUDevice;
 let canvasFormat: GPUTextureFormat;
@@ -13,7 +13,7 @@ class Renderer {
   context: GPUCanvasContext;
 
   // resource
-  renderableObj: RenderableObject;
+  controller: RenderController;
   shadowMap: GPUTexture;
   renderDepthMap: GPUTexture;
 
@@ -61,14 +61,14 @@ class Renderer {
 
   async initScene(scene: THREE.Scene) {
 
-    this.renderableObj = new RenderableObject();
+    this.controller = new RenderController();
 
-    this.renderableObj.initScene(scene);
-    await this.renderableObj.initResources();
-    await this.renderableObj.initRenderPass();
-    await this.renderableObj.initShadowPass();
+    this.controller.initScene(scene);
+    await this.controller.initResources();
+    await this.controller.initRenderPass();
+    await this.controller.initShadowPass();
 
-    this.shadowMap = this.renderableObj.globalObject.bindGroupResources.shadowMap as GPUTexture;
+    this.shadowMap = this.controller.globalObject.resource.shadowMap as GPUTexture;
     this.renderDepthMap = device.createTexture({
       label: 'Render Depth Map',
       size: this.size,
@@ -92,7 +92,7 @@ class Renderer {
         depthStoreOp: 'store',
       }
     });
-    shadowPassEncoder.executeBundles([this.renderableObj.shadowBundle]);
+    shadowPassEncoder.executeBundles([this.controller.shadowBundle]);
     shadowPassEncoder.end();
 
     // render pass
@@ -110,7 +110,7 @@ class Renderer {
         depthStoreOp: 'store',
       }
     });
-    renderPassEncoder.executeBundles([this.renderableObj.renderBundle]);
+    renderPassEncoder.executeBundles([this.controller.renderBundle]);
     renderPassEncoder.end();
 
     const commandBuffer = commandEncoder.finish();
@@ -120,7 +120,7 @@ class Renderer {
 
   update() {
 
-    this.renderableObj.update();
+    this.controller.update();
 
   }
 

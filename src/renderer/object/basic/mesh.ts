@@ -6,33 +6,35 @@ import {
   resourceFactory,
   bindGroupFactory
 } from '../../base';
+import { RenderableObject } from '../renderableObject';
 import { createVertexShader } from './vertexShader';
 import { createFragmentShader } from './fragmentShader';
 
 
-class MeshObject {
+class Mesh extends RenderableObject {
 
-  mesh: THREE.Mesh;
+  private mesh: THREE.Mesh;
 
-  renderPipeline: GPURenderPipeline;
-  shadowPipeline: GPURenderPipeline;
+  private renderPipeline: GPURenderPipeline;
+  private shadowPipeline: GPURenderPipeline;
 
-  vertexCount: number;
-  vertexBufferAttributes: string[]; // resource name
-  vertexBufferData: { [x: string]: TypedArray }; // resource in CPU
-  vertexBuffers: { [x: string]: GPUBuffer }; // resource in GPU
+  private vertexCount: number;
+  private vertexBufferAttributes: string[]; // resource name
+  private vertexBufferData: { [x: string]: TypedArray }; // resource in CPU
+  private vertexBuffers: { [x: string]: GPUBuffer }; // resource in GPU
 
-  resourceAttributes: string[]; // resource name
-  resourceData: { [x: string]: TypedArray | ImageBitmap | ImageBitmapSource }; // resource in CPU
-  resources: { [x: string]: GPUBuffer | GPUTexture | GPUSampler }; // resource in GPU
+  private resourceAttributes: string[]; // resource name
+  private resourceCPUData: { [x: string]: TypedArray | ImageBitmap | ImageBitmapSource }; // resource in CPU
+  private resource: { [x: string]: GPUBuffer | GPUTexture | GPUSampler }; // resource in GPU
 
   constructor(mesh: THREE.Mesh) {
 
+    super();
     this.mesh = mesh;
     
   }
 
-  initVertexBuffer() {
+  public initVertexBuffer() {
 
     this.vertexBufferAttributes = ['position', 'normal', 'uv'];
     this.vertexBufferData = {
@@ -59,14 +61,14 @@ class MeshObject {
 
   }
 
-  async initGroupResource() {
+  public async initGroupResource() {
 
     const material = this.mesh.material as THREE.MeshStandardMaterial;
 
     let normalMat = new THREE.Matrix3().getNormalMatrix(this.mesh.matrixWorld).toArray();
 
-    this.resourceAttributes = ['transform', 'color', 'textureSampler'];
-    this.resourceData = {
+    this.resourceAttributes = ['transform', 'color'];
+    this.resourceCPUData = {
       transform: new Float32Array([
         ...this.mesh.matrixWorld.toArray(),
         ...normalMat.slice(0, 3), 0,          // AlignOf(mat3x3<f32>) in wgsl is 16.
@@ -80,31 +82,33 @@ class MeshObject {
 
     if (!!material.map) {
       this.resourceAttributes.push('baseMap');
-      this.resourceData.baseMap = material.map.source.data;
+      this.resourceCPUData.baseMap = material.map.source.data;
     }
 
     if (!!material.normalMap) {
       this.resourceAttributes.push('normalMap');
-      this.resourceData.normalMap = material.normalMap.source.data;
+      this.resourceCPUData.normalMap = material.normalMap.source.data;
     }
 
-    this.resources = await resourceFactory.createResource(this.resourceAttributes, this.resourceData);
+    this.resource = await resourceFactory.createResource(this.resourceAttributes, this.resourceCPUData);
 
   }
 
-  async setRenderBundle(
+  public async setRenderBundle(
     bundleEncoder: GPURenderBundleEncoder,
-    globalGroupLayouts: GPUBindGroupLayout[],
-    globalGroups: GPUBindGroup[]
+    globalResource: { [x: string]: GPUBuffer | GPUTexture | GPUSampler }
   ) {
     
     const vertexLayout = vertexBufferFactory.createLayout(this.vertexBufferAttributes);
-    const { layout, group } = bindGroupFactory.create(this.resourceAttributes, this.resources);
+    const { layout, group } = bindGroupFactory.create(
+      [ 'camera', 'pointLight', 'shadowMapSampler', 'textureSampler', 'shadowMap', ...this.resourceAttributes ],
+      { ...globalResource, ...this.resource }
+    );
     
     this.renderPipeline = await device.createRenderPipelineAsync({
       label: 'Render Pipeline',
       layout: device.createPipelineLayout({ 
-        bindGroupLayouts: [...globalGroupLayouts, layout] 
+        bindGroupLayouts: [layout]
       }),
       vertex: {
         module: device.createShaderModule({ code: 
@@ -147,13 +151,8 @@ class MeshObject {
       }
     }
 
-    // set bind groups
-    loction = 0;
-    for (const globalGroup of globalGroups) { // global group
-      bundleEncoder.setBindGroup(loction, globalGroup);
-      loction++;
-    }
-    bundleEncoder.setBindGroup(loction, group); // local group
+    // set bind group
+    bundleEncoder.setBindGroup(0, group);
 
     // draw
     if (indexed) bundleEncoder.drawIndexed(this.vertexCount);
@@ -161,23 +160,24 @@ class MeshObject {
     
   }
 
-  async setShadowBundle(
+  public async setShadowBundle(
     bundleEncoder: GPURenderBundleEncoder,
-    globalGroupLayouts: GPUBindGroupLayout[],
-    globalGroups: GPUBindGroup[]
+    globalResource: { [x: string]: GPUBuffer | GPUTexture | GPUSampler }
   ) {
 
     let vertexBufferAttributs = ['position'];
     if (this.vertexBufferAttributes.includes('index')) vertexBufferAttributs.push('index');
-    let resourceAttributes = ['transform'];
 
     const vertexLayout = vertexBufferFactory.createLayout(vertexBufferAttributs);
-    const { layout, group } = bindGroupFactory.create(resourceAttributes, this.resources);
+    const { layout, group } = bindGroupFactory.create(
+      [ 'pointLight', 'transform' ],
+      { ...globalResource, ...this.resource }
+    );
     
     this.shadowPipeline = await device.createRenderPipelineAsync({
       label: 'Shadow Pipeline',
       layout: device.createPipelineLayout({ 
-        bindGroupLayouts: [...globalGroupLayouts, layout] 
+        bindGroupLayouts: [layout] 
       }),
       vertex: {
         module: device.createShaderModule({ code: 
@@ -213,13 +213,8 @@ class MeshObject {
       }
     }
 
-    // set bind groups
-    loction = 0;
-    for (const globalGroup of globalGroups) { // global group
-      bundleEncoder.setBindGroup(loction, globalGroup);
-      loction++;
-    }
-    bundleEncoder.setBindGroup(loction, group); // local group
+    // set bind group
+    bundleEncoder.setBindGroup(0, group);
     
     // draw
     if (indexed) bundleEncoder.drawIndexed(this.vertexCount);
@@ -227,22 +222,22 @@ class MeshObject {
 
   }
 
-  update() {
+  public update() {
 
     let normalMat = new THREE.Matrix3().getNormalMatrix(this.mesh.matrixWorld).toArray();
-    (this.resourceData.transform as TypedArray).set([
+    (this.resourceCPUData.transform as TypedArray).set([
       ...this.mesh.matrixWorld.toArray(),
       ...normalMat.slice(0, 3), 0,
       ...normalMat.slice(3, 6), 0,
       ...normalMat.slice(6, 9), 0
     ]);
     device.queue.writeBuffer( 
-      this.resources.transform as GPUBuffer,
-      0, this.resourceData.transform as TypedArray
+      this.resource.transform as GPUBuffer,
+      0, this.resourceCPUData.transform as TypedArray
     );
 
   }
 
 }
 
-export { MeshObject };
+export { Mesh };

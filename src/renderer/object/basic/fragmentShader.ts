@@ -24,16 +24,16 @@ struct PointLight {
 
 @group(0) @binding(0) var<uniform> camera: Camera;
 @group(0) @binding(1) var<uniform> pointLight: PointLight;
-@group(0) @binding(2) var shadowSampler: sampler_comparison;
-@group(0) @binding(3) var shadowMap: texture_depth_2d;
+@group(0) @binding(2) var shadowMapSampler: sampler_comparison;
+@group(0) @binding(3) var textureSampler: sampler;
+@group(0) @binding(4) var shadowMap: texture_depth_2d;
 
-@group(1) @binding(1) var<uniform> color: vec3<f32>;
-@group(1) @binding(2) var texSampler: sampler;
+@group(0) @binding(6) var<uniform> color: vec3<f32>;
 #if ${baseMap}
-@group(1) @binding(3) var baseMap: texture_2d<f32>;
+@group(0) @binding(7) var baseMap: texture_2d<f32>;
 #endif
 #if ${normalMap}
-@group(1) @binding(4) var normalMap: texture_2d<f32>;
+@group(0) @binding(8) var normalMap: texture_2d<f32>;
 #endif
 
 const bias = 0.002;
@@ -71,7 +71,7 @@ fn PCF(radius: f32, shadowCoords: vec3<f32>) -> f32 {
   for (var i : i32 = 0 ; i < SMAPLE_NUM ; i = i + 1) {
     sum = sum + textureSampleCompare(
       shadowMap,
-      shadowSampler,
+      shadowMapSampler,
       shadowCoords.xy + radius_tex * rot_mat * POISSON_DISK_SAMPLES[i],
       shadowCoords.z - bias
     );
@@ -117,7 +117,7 @@ fn main(
 #if ${normalMap}
   let tbn: mat3x3<f32> = mat3x3<f32>(tangent, biTangent, fragNormal);
   let normal_del: vec3<f32> = normalize(
-    textureSample(normalMap, texSampler, fragUV).xyz - vec3<f32>(0.5, 0.5, 0.5)
+    textureSample(normalMap, textureSampler, fragUV).xyz - vec3<f32>(0.5, 0.5, 0.5)
   );
   let normal = normalize(tbn * normal_del.xyz);
 #else
@@ -126,7 +126,7 @@ fn main(
 
   // blbedo
 #if ${baseMap}
-  let albedo = textureSample(baseMap, texSampler, fragUV).xyz * color;
+  let albedo = textureSample(baseMap, textureSampler, fragUV).xyz * color;
 #else
   let albedo = color;
 #endif
@@ -137,7 +137,7 @@ fn main(
     shadowPos.z / shadowPos.w
   );
   // let visibility = textureSampleCompare(
-  //   shadowMap, shadowSampler, 
+  //   shadowMap, shadowMapSampler, 
   //   shadowCoords.xy, shadowCoords.z - bias
   // );
   let visibility = PCF(5.0, shadowCoords);
