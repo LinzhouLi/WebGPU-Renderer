@@ -73,11 +73,11 @@ class Main {
 
     // mesh
     {
-      const glb = await this.loadGLB('test/male.glb');
+      const glb = await this.loadGLB('crowd/male.glb');
       const mesh = glb.scene.children[2] as THREE.SkinnedMesh;
       const material = mesh.material as THREE.MeshStandardMaterial;
-      material.normalMap = await this.loadTexture('test/normal_map.jpg');
-      material.metalnessMap = await this.loadTexture('test/spec_map.jpg');
+      material.normalMap = await this.loadTexture('crowd/normal_map.jpg');
+      material.metalnessMap = await this.loadTexture('crowd/spec_map.jpg');
 
       // calculate tangent
       await MikkTSpace.ready;
@@ -103,14 +103,6 @@ class Main {
       mesh.material = material;
       mesh.rotation.set(0, -0.75 * Math.PI, 0)
       // console.log(mesh);
-      // this.scene.add(mesh);
-    }
-
-    {
-      const geometry = new THREE.BoxGeometry( 0.5, 0.5, 0.5 );
-      const material = new THREE.MeshBasicMaterial({color: 0xffffff});
-      const mesh = new THREE.Mesh( geometry, material );
-      mesh.position.set(0, 5, 5);
       // this.scene.add(mesh);
     }
 

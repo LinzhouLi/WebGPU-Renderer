@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { RenderableObject } from './renderableObject'
+import { RenderableObject } from './object/renderableObject'
 
 let device: GPUDevice;
 let canvasFormat: GPUTextureFormat;

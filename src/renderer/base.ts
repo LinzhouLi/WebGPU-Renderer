@@ -1,6 +1,6 @@
-import { VertexBufferFactory } from './vertexBuffer';
-import { ResourceFactory } from './resuorce';
-import { BindGroupFactory } from './bindGroup';
+import { VertexBufferFactory } from './resource/vertexBuffer';
+import { ResourceFactory } from './resource/resuorce';
+import { BindGroupFactory } from './resource/bindGroup';
 
 type TypedArray = Float64Array | Float32Array | Int32Array | Uint32Array | Int16Array | Uint16Array | Int8Array | Uint8Array;
 
