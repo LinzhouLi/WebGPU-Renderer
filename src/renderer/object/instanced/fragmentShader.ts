@@ -123,7 +123,7 @@ fn main(
   // normal
 #if ${normalMapArray}
   let tbn: mat3x3<f32> = mat3x3<f32>(tangent, biTangent, fragNormal);
-  let normal_del: vec3<f32> = normalize(
+  let normal_del: vec3<f32> = normalize( // transform texture array index from u32 to i32
     textureSample(normalMap, textureSampler, fragUV, i32(info.textureIndex)).xyz - vec3<f32>(0.5, 0.5, 0.5)
   );
   let normal = normalize(tbn * normal_del.xyz);

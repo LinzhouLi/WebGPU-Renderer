@@ -33,10 +33,11 @@ class Renderer {
       powerPreference: 'high-performance' // 'low-power'
     });
     if (!adapter) throw new Error('No Adapter Found');
-    console.log(adapter)
+    adapter.features.forEach(feature => console.log(`Support feature: ${feature}`));
+    
     // device
-    device = await adapter.requestDevice();
-
+    device = await adapter.requestDevice(); // "shader-f16" feature is not supported on my laptop
+    
     // context
     const context = this.canvas.getContext('webgpu');
     if (!context) throw new Error('Can Not Get GPUCanvasContext');

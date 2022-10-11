@@ -8,6 +8,8 @@ To do:
 - [x] Blinn-Phong Shading
 - [x] PCF shadow
 - [ ] PCSS shadow
+- [ ] MSAA
+- [ ] Texture compression
 - [x] Normal Map
 - [x] Skybox
 - [x] Instanced Mesh
