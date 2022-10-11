@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { RenderController } from './controller'
+import { RenderableObject } from './object/renderableObject';
 
 let device: GPUDevice;
 let canvasFormat: GPUTextureFormat;
@@ -7,23 +8,23 @@ let canvasFormat: GPUTextureFormat;
 class Renderer {
 
   // basic
-  adapter: GPUAdapter;
-  size: { width: number, height: number };
-  canvas: HTMLCanvasElement;
-  context: GPUCanvasContext;
+  private size: { width: number, height: number };
+  private canvas: HTMLCanvasElement;
+  private context: GPUCanvasContext;
 
   // resource
-  controller: RenderController;
-  shadowMap: GPUTexture;
-  renderDepthMap: GPUTexture;
+  private controller: RenderController;
+  private shadowMap: GPUTexture;
+  private renderDepthMap: GPUTexture;
 
   constructor(canvas: HTMLCanvasElement) {
 
     this.canvas = canvas;
+    this.controller = new RenderController();
 
   }
 
-  async initWebGPU() {
+  public async initWebGPU() {
 
     if(!navigator.gpu) throw new Error('Not Support WebGPU');
 
@@ -32,7 +33,6 @@ class Renderer {
       powerPreference: 'high-performance' // 'low-power'
     });
     if (!adapter) throw new Error('No Adapter Found');
-    this.adapter = adapter;
     console.log(adapter)
     // device
     device = await adapter.requestDevice();
@@ -59,9 +59,13 @@ class Renderer {
 
   }
 
-  async initScene(scene: THREE.Scene) {
+  public addRenderableObject(obj: RenderableObject) {
 
-    this.controller = new RenderController();
+    this.controller.addRenderableObject(obj);
+
+  }
+
+  public async initScene(scene: THREE.Scene) {
 
     this.controller.initScene(scene);
     await this.controller.initResources();
@@ -78,7 +82,7 @@ class Renderer {
 
   }
 
-  draw() {
+  public draw() {
 
     const commandEncoder = device.createCommandEncoder()
 
@@ -118,7 +122,7 @@ class Renderer {
 
   }
 
-  update() {
+  public update() {
 
     this.controller.update();
 

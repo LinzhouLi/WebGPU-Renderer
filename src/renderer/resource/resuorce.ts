@@ -218,13 +218,31 @@ const ResourceFormat = {
   },
 
   // for instanced mesh
+  instanceInfo: {
+    type: 'buffer' as ResourceType,
+    label: 'Instance Infomation',
+    visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+    usage:  GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+    layout: { 
+      type: 'read-only-storage' as GPUBufferBindingType
+    } as GPUBufferBindingLayout
+  },
 
   // transform
+  instancedTransform: {
+    type: 'buffer' as ResourceType,
+    label: 'Transform Structure for Instanced Mesh',
+    visibility: GPUShaderStage.VERTEX,
+    usage:  GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+    layout: { 
+      type: 'read-only-storage' as GPUBufferBindingType
+    } as GPUBufferBindingLayout
+  },
   instancedModelMat: {
     type: 'buffer' as ResourceType,
     label: 'Model Matrix for Instanced Mesh (mat4x4xn)',
     visibility: GPUShaderStage.VERTEX,
-    usage:  GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+    usage:  GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
     layout: { 
       type: 'read-only-storage' as GPUBufferBindingType
     } as GPUBufferBindingLayout
@@ -233,7 +251,7 @@ const ResourceFormat = {
     type: 'buffer' as ResourceType,
     label: 'Normal Matrix for Instanced Mesh (mat3x3xn)',
     visibility: GPUShaderStage.VERTEX,
-    usage:  GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+    usage:  GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
     layout: { 
       type: 'read-only-storage' as GPUBufferBindingType
     } as GPUBufferBindingLayout
@@ -244,9 +262,9 @@ const ResourceFormat = {
     type: 'buffer' as ResourceType,
     label: 'Color for Instanced Mesh (vec3)',
     visibility: GPUShaderStage.FRAGMENT,
-    usage:  GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+    usage:  GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
     layout: { 
-      type: 'uniform' as GPUBufferBindingType
+      type: 'read-only-storage' as GPUBufferBindingType
     } as GPUBufferBindingLayout
   },
   baseMapArray: {
@@ -295,8 +313,8 @@ class ResourceFactory {
         throw new Error(`Resource Attribute Not Exist: ${attribute}`);
 
       switch (ResourceFormat[attribute].type) {
-        case 'buffer': { // GPU buffer
 
+        case 'buffer': { // GPU buffer
           if ((ResourceFormat[attribute].usage & GPUBufferUsage.COPY_DST) && !data[attribute])
             throw new Error(`${attribute} Needs Copy Data`);
 
@@ -310,11 +328,10 @@ class ResourceFactory {
           });
           if (data[attribute]) device.queue.writeBuffer(buffer, 0, array);
           result[attribute] = buffer;
-
           break;
         }
-        case 'sampler': { // GPU sampler
 
+        case 'sampler': { // GPU sampler
           let sampler = device.createSampler({
             label: ResourceFormat[attribute].label,
             magFilter: ResourceFormat[attribute].magFilter || 'nearest',
@@ -322,11 +339,10 @@ class ResourceFactory {
             compare: ResourceFormat[attribute].compare || undefined // The provided value 'null' is not a valid enum value of type GPUCompareFunction.
           });
           result[attribute] = sampler;
-
           break;
         }
-        case 'texture': { // GPU texture
 
+        case 'texture': { // GPU texture
           if ((ResourceFormat[attribute].usage & GPUTextureUsage.COPY_DST) && !data[attribute])
             throw new Error(`${attribute} Needs Copy Data`);
 
@@ -356,12 +372,11 @@ class ResourceFactory {
             );
           }
           result[attribute] = texture;
-
           break;
         }
-        case 'cube-texture': { // GPU cube texture
 
-          if ((ResourceFormat[attribute].usage & GPUTextureUsage.COPY_DST)) {
+        case 'cube-texture': { // GPU cube texture
+          if (ResourceFormat[attribute].usage & GPUTextureUsage.COPY_DST) {
             if (!data[attribute])
               throw new Error(`${attribute} Needs Copy Data`);
             if ((data[attribute] as (ImageBitmap | ImageBitmapSource)[]).length != 6)
@@ -401,9 +416,50 @@ class ResourceFactory {
             )
           }
           result[attribute] = texture;
-
           break;
         }
+
+        case 'texture-array': {
+          if ((ResourceFormat[attribute].usage & GPUTextureUsage.COPY_DST) && !data[attribute]) {
+            throw new Error(`${attribute} Needs Copy Data`);
+          }
+
+          // create bitmap
+          let bitmaps: ImageBitmap[] = [];
+          if (data[attribute]) {
+            for (const imageData of data[attribute] as (ImageBitmap | ImageBitmapSource)[]) {
+              let bitmap: ImageBitmap;
+              if (imageData instanceof ImageBitmap)
+                bitmap = imageData as ImageBitmap;
+              else
+                bitmap = await createImageBitmap(imageData as ImageBitmapSource);
+              bitmaps.push(bitmap);
+            }
+          }
+
+          // create
+          const textureSize = bitmaps[0] ? [bitmaps[0].width, bitmaps[0].height] : ResourceFormat[attribute].size;
+          let texture = device.createTexture({
+            label: ResourceFormat[attribute].label,
+            size: [...textureSize, bitmaps.length],
+            dimension: ResourceFormat[attribute].dimension || '2d',
+            format: ResourceFormat[attribute].format || 'rgba8unorm',
+            usage: ResourceFormat[attribute].usage
+          });
+          for (let i = 0; i < bitmaps.length; i++) {
+            device.queue.copyExternalImageToTexture(
+              { source: bitmaps[i] },
+              { 
+                texture: texture,      // Defines the origin of the copy - the minimum corner of the texture sub-region to copy to/from.
+                origin: [0, 0, i]      // Together with `copySize`, defines the full copy sub-region.
+              },
+              [ ...textureSize, 1]
+            )
+          }
+          result[attribute] = texture;
+          break;
+        }
+
         default: {
           throw new Error('Resource Type Not Support');
         }

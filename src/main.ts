@@ -1,11 +1,12 @@
 import './style.css';
 import * as THREE from 'three';
-import { computeMikkTSpaceTangents } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
-import * as MikkTSpace from 'three/examples/jsm/libs/mikktspace.module.js'
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
-import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader';
+import { computeMikkTSpaceTangents } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import * as MikkTSpace from 'three/examples/jsm/libs/mikktspace.module.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+
+import { loader } from './loader';
 import { Renderer } from './renderer/renderer';
+import { CrowdManager } from './crowdManager'
 
 class Main {
 
@@ -14,6 +15,7 @@ class Main {
   mixer: THREE.AnimationMixer;
   clock: THREE.Clock;
   scene: THREE.Scene;
+  crowdManager: CrowdManager;
 
   constructor() {
 
@@ -38,6 +40,7 @@ class Main {
 
     await this.renderer.initWebGPU();
     await this.initScene();
+    this.renderer.addRenderableObject(this.crowdManager.renderableObject);
     await this.renderer.initScene(this.scene);
 
   }
@@ -46,12 +49,11 @@ class Main {
 
     // scene
     this.scene = new THREE.Scene();
-    this.scene.background = await this.loadCubeTexture([
+    this.scene.background = await loader.loadCubeTexture([
       "skybox/right.jpg", "skybox/left.jpg", // px nx
       "skybox/top.jpg", "skybox/bottom.jpg", // py ny
       "skybox/front.jpg", "skybox/back.jpg"  // pz nz
     ]);
-    console.log(this.scene)
 
     // clock
     this.clock = new THREE.Clock();
@@ -73,11 +75,11 @@ class Main {
 
     // mesh
     {
-      const glb = await this.loadGLB('crowd/male.glb');
+      const glb = await loader.loadGLTF('crowd/male.glb');
       const mesh = glb.scene.children[2] as THREE.SkinnedMesh;
       const material = mesh.material as THREE.MeshStandardMaterial;
-      material.normalMap = await this.loadTexture('crowd/normal_map.jpg');
-      material.metalnessMap = await this.loadTexture('crowd/spec_map.jpg');
+      material.map = await loader.loadTexture('crowd/business03.jpg');
+      material.normalMap = await loader.loadTexture('crowd/business03_normal.jpg');
 
       // calculate tangent
       await MikkTSpace.ready;
@@ -91,12 +93,11 @@ class Main {
       // animation
       this.mixer = new THREE.AnimationMixer(mesh);
       mesh.rotation.set(0, -0.75 * Math.PI, 0)
-      this.scene.add( mesh );
-      console.log(mesh)
+      // this.scene.add( mesh );
     }
 
     {
-      const glb = await this.loadGLB('genshin/ying.gltf');
+      const glb = await loader.loadGLTF('genshin/ying.gltf');
       const mesh = glb.scene.children[0].children[1];
       const material = new THREE.MeshPhongMaterial();
       material.map = mesh.material.map;
@@ -107,83 +108,17 @@ class Main {
     }
 
     {
-      const geometry = new THREE.PlaneGeometry( 6, 6 );
+      const geometry = new THREE.PlaneGeometry( 30, 30 );
       const material = new THREE.MeshBasicMaterial({color: 0xffffff});
       const mesh = new THREE.Mesh( geometry, material );
       mesh.rotation.set(-Math.PI / 2, 0, 0);
-      mesh.position.set(1, 0, 1);
+      // mesh.position.set(1, 0, 1);
       this.scene.add( mesh );
     }
+
+    this.crowdManager = new CrowdManager();
+    await this.crowdManager.initResource();
     
-  }
-
-  loadGLB( path: string ) {
-
-    return new Promise((
-      resolve: (gltf: any) => void, 
-      reject: (event: ErrorEvent) => void
-    ) => { 
-      const modelLoader = new GLTFLoader();
-      modelLoader.load( 
-        path, 
-        gltf => { resolve( gltf ); }, // onLoad
-        null, // onProgress
-        error => reject(error) // onError
-      );
-    });
-
-  }
-
-  loadFBX( path: string ) {
-
-    return new Promise((
-      resolve: (gltf: any) => void, 
-      reject: (event: ErrorEvent) => void
-    ) => { 
-      const modelLoader = new FBXLoader();
-      modelLoader.load( 
-        path, 
-        gltf => { resolve( gltf ); }, // onLoad
-        null, // onProgress
-        error => reject(error) // onError
-      );
-    });
-
-  }
-
-  loadTexture( path: string ) {
-
-    return new Promise((
-      resolve: (texture: THREE.Texture) => void, 
-      reject: (event: ErrorEvent) => void
-    ) => {
-      new THREE.TextureLoader().load(
-        path,
-        texture => { // onLoad
-          texture.flipY = false;
-          resolve(texture);
-        }, 
-        null, // onProgress
-        error => reject(error) // onError
-      )
-    });
-  
-  }
-
-  loadCubeTexture( paths: string[] ) {
-
-    return new Promise((
-      resolve: (cubeTexture: THREE.CubeTexture) => void,
-      reject: (event: ErrorEvent) => void
-    ) => {
-      new THREE.CubeTextureLoader().load(
-        paths,
-        texture => resolve(texture),  // onLoad
-        null, // onProgress
-        error => reject(error) // onError
-      )
-    });
-
   }
 
 }

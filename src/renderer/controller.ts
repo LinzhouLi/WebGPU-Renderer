@@ -82,6 +82,8 @@ class RenderController {
 
   constructor() {
 
+    this.objectList = [];
+
   }
 
   private updateMatrix() {
@@ -95,12 +97,17 @@ class RenderController {
     
   }
 
+  public addRenderableObject(obj: RenderableObject) {
+
+    this.objectList.push(obj);
+
+  }
+
   public initScene(scene: THREE.Scene) {
 
     this.scene = scene;
     this.camera = null;
     this.light = null;
-    this.objectList = [];
     
     scene.traverse(obj => {
       if (obj instanceof THREE.PerspectiveCamera) {
@@ -119,8 +126,6 @@ class RenderController {
         this.objectList.push(new Mesh(obj as THREE.Mesh));
       }
     });
-
-    this.objectList.push(new Skybox()); // render skybox at last
     
     if (this.camera === null) throw new Error('No Camera');
     if (this.light === null) throw new Error('No Light');
@@ -134,11 +139,11 @@ class RenderController {
     this.updateMatrix();
 
     await this.globalObject.initResource();
+    this.objectList.push(new Skybox()); // render skybox at last
     for (const meshObject of this.objectList) {
       meshObject.initVertexBuffer();
       await meshObject.initGroupResource();
     }
-
   }
 
   public async initRenderPass() {

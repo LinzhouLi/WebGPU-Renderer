@@ -6,32 +6,38 @@ import {
   resourceFactory,
   bindGroupFactory
 } from '../../base';
+import { RenderableObject } from '../renderableObject';
+import { createVertexShader } from './vertexShader';
+import { createFragmentShader } from './fragmentShader';
 
-class InstancedMesh {
+class InstancedMesh extends RenderableObject {
 
-  mesh: THREE.Mesh;
+  private mesh: THREE.Mesh;
 
-  renderPipeline: GPURenderPipeline;
-  shadowPipeline: GPURenderPipeline;
+  private renderPipeline: GPURenderPipeline;
+  private shadowPipeline: GPURenderPipeline;
 
-  instanceCount: number;
-  vertexCount: number;
-  vertexBufferAttributes: string[]; // resource name
-  vertexBufferData: { [x: string]: TypedArray }; // resource in CPU
-  vertexBuffers: { [x: string]: GPUBuffer }; // resource in GPU
+  private instanceCount: number;
+  private vertexCount: number;
+  private vertexBufferAttributes: string[]; // resource name
+  private vertexBufferData: { [x: string]: TypedArray }; // resource in CPU
+  private vertexBuffers: { [x: string]: GPUBuffer }; // resource in GPU
 
-  resourceAttributes: string[]; // resource name
-  resourceData: { [x: string]: TypedArray | ImageBitmap | ImageBitmapSource }; // resource in CPU
-  resources: { [x: string]: GPUBuffer | GPUTexture | GPUSampler }; // resource in GPU
+  private resourceAttributes: string[]; // resource name
+  private resourceCPUData: { [x: string]: TypedArray | ImageBitmap | ImageBitmapSource | (ImageBitmap | ImageBitmapSource)[] }; // resource in CPU
+  private resource: { [x: string]: GPUBuffer | GPUTexture | GPUSampler }; // resource in GPU
 
-  constructor(mesh: THREE.Mesh) {
+  constructor(mesh: THREE.Mesh, instanceCount: number) {
 
+    super();
     this.mesh = mesh;
+    this.instanceCount = instanceCount;
+    this.resourceCPUData = { };
 
   }
 
-  initVertexBuffer() {
-
+  public initVertexBuffer() {
+    
     this.vertexBufferAttributes = ['position', 'normal', 'uv'];
     this.vertexBufferData = {
       position: this.mesh.geometry.attributes.position.array as TypedArray,
@@ -54,10 +60,197 @@ class InstancedMesh {
     }
 
     this.vertexBuffers = vertexBufferFactory.createResource(this.vertexBufferAttributes, this.vertexBufferData);
+    
+  }
+
+  public setTransfrom(
+    positions: THREE.Vector3[],
+    scales: THREE.Vector3[],
+    rotations: THREE.Euler[]
+  ) {
+
+    let transformElements = [];
+    for (let i = 0; i < this.instanceCount; i++) {
+      let modelMat = new THREE.Matrix4().compose(
+        positions[i], 
+        new THREE.Quaternion().setFromEuler(rotations[i]),
+        scales[i]
+      );
+      let normalMatElements = new THREE.Matrix3().getNormalMatrix(modelMat).toArray();
+      transformElements.push(
+        ...modelMat.toArray(),
+        ...normalMatElements.slice(0, 3), 0,        // AlignOf(mat3x3<f32>) in wgsl is 16.
+        ...normalMatElements.slice(3, 6), 0,        // see https://gpuweb.github.io/gpuweb/wgsl/#alignment
+        ...normalMatElements.slice(6, 9), 0
+      );
+    }
+    this.resourceCPUData.instancedTransform = new Float32Array(transformElements);
 
   }
 
+  public setInfo(textureIndices: number[]) {
 
+    this.resourceCPUData.instanceInfo = new Uint32Array(textureIndices);
+
+  }
+
+  public setColor(colors: THREE.Color[]) {
+
+    let colorElements = [];
+    for (let i = 0; i < this.instanceCount; i++) colorElements.push(...colors[i].toArray());
+    this.resourceCPUData.instancedColor = new Float32Array(colorElements);
+
+  }
+
+  public setTexture(
+    baseMapArray: THREE.Texture[],
+    normalMapArray: THREE.Texture[]
+  ) {
+
+    if (baseMapArray.length != normalMapArray.length) throw new Error('Count of normal maps Should be equal to the count of base maps')
+    this.resourceCPUData.baseMapArray = baseMapArray.map(texture => texture.source.data);
+    this.resourceCPUData.normalMapArray = normalMapArray.map(texture => texture.source.data);
+
+  }
+
+  public async initGroupResource() {
+
+    this.resourceAttributes = ['instancedTransform', 'instanceInfo', 'instancedColor', 'baseMapArray', 'normalMapArray'];
+    this.resource = await resourceFactory.createResource(this.resourceAttributes, this.resourceCPUData);
+
+  }
+
+  public async setRenderBundle(
+    bundleEncoder: GPURenderBundleEncoder,
+    globalResource: { [x: string]: GPUBuffer | GPUTexture | GPUSampler }
+  ) {
+
+    const vertexLayout = vertexBufferFactory.createLayout(this.vertexBufferAttributes);
+    const { layout, group } = bindGroupFactory.create(
+      [ 'camera', 'pointLight', 'shadowMapSampler', 'textureSampler', 'shadowMap', ...this.resourceAttributes ],
+      { ...globalResource, ...this.resource }
+    );
+    
+    this.renderPipeline = await device.createRenderPipelineAsync({
+      label: 'Render Pipeline',
+      layout: device.createPipelineLayout({ 
+        bindGroupLayouts: [layout]
+      }),
+      vertex: {
+        module: device.createShaderModule({ code: 
+          createVertexShader([...this.vertexBufferAttributes, ...this.resourceAttributes], 'render')
+        }),
+        entryPoint: 'main',
+        buffers: vertexLayout
+      },
+      fragment: {
+        module: device.createShaderModule({ code: 
+          createFragmentShader([...this.vertexBufferAttributes, ...this.resourceAttributes], 'phong')
+        }),
+        entryPoint: 'main',
+        targets: [{ format: canvasFormat }]
+      },
+      primitive: {
+        topology: 'triangle-list',
+        cullMode: 'back'
+      }, 
+      depthStencil: {
+        depthWriteEnabled: true,
+        depthCompare: 'less',
+        format: 'depth32float'
+      }
+    });
+    
+    bundleEncoder.setPipeline(this.renderPipeline);
+
+    // set vertex and index buffers
+    let loction = 0;
+    let indexed = false;
+    for (const attribute of this.vertexBufferAttributes) {
+      if (attribute === 'index') {
+        bundleEncoder.setIndexBuffer(this.vertexBuffers.index, 'uint16');
+        indexed = true;
+      }
+      else {
+        bundleEncoder.setVertexBuffer(loction, this.vertexBuffers[attribute]);
+        loction++;
+      }
+    }
+
+    // set bind group
+    bundleEncoder.setBindGroup(0, group);
+
+    // draw
+    if (indexed) bundleEncoder.drawIndexed(this.vertexCount, this.instanceCount);
+    else bundleEncoder.draw(this.vertexCount, this.instanceCount);
+
+  }
+
+  public async setShadowBundle(
+    bundleEncoder: GPURenderBundleEncoder,
+    globalResource: { [x: string]: GPUBuffer | GPUTexture | GPUSampler }
+  ) {
+
+    let vertexBufferAttributs = ['position'];
+    if (this.vertexBufferAttributes.includes('index')) vertexBufferAttributs.push('index');
+
+    const vertexLayout = vertexBufferFactory.createLayout(vertexBufferAttributs);
+    const { layout, group } = bindGroupFactory.create(
+      [ 'pointLight', 'instancedTransform' ],
+      { ...globalResource, ...this.resource }
+    );
+    
+    this.shadowPipeline = await device.createRenderPipelineAsync({
+      label: 'Shadow Pipeline',
+      layout: device.createPipelineLayout({ 
+        bindGroupLayouts: [layout] 
+      }),
+      vertex: {
+        module: device.createShaderModule({ code: 
+          createVertexShader([...this.vertexBufferAttributes, ...this.resourceAttributes], 'shadow')
+        }),
+        entryPoint: 'main',
+        buffers: vertexLayout
+      },
+      primitive: {
+        topology: 'triangle-list',
+        cullMode: 'back'
+      }, 
+      depthStencil: {
+        depthWriteEnabled: true,
+        depthCompare: 'less',
+        format: 'depth32float'
+      }
+    });
+    
+    bundleEncoder.setPipeline(this.shadowPipeline);
+    
+    // set vertex and index buffers
+    let loction = 0;
+    let indexed = false;
+    for (const attribute of vertexBufferAttributs) {
+      if (attribute === 'index') {
+        bundleEncoder.setIndexBuffer(this.vertexBuffers.index, 'uint16');
+        indexed = true;
+      }
+      else {
+        bundleEncoder.setVertexBuffer(loction, this.vertexBuffers[attribute]);
+        loction++;
+      }
+    }
+
+    // set bind group
+    bundleEncoder.setBindGroup(0, group);
+    
+    // draw
+    if (indexed) bundleEncoder.drawIndexed(this.vertexCount, this.instanceCount);
+    else bundleEncoder.draw(this.vertexCount, this.instanceCount);
+
+  }
+
+  public update() {
+    
+  }
 
 }
 

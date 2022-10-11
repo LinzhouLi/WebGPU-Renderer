@@ -140,7 +140,8 @@ fn main(
   //   shadowMap, shadowMapSampler, 
   //   shadowCoords.xy, shadowCoords.z - bias
   // );
-  let visibility = PCF(5.0, shadowCoords);
+  // let visibility = PCF(5.0, shadowCoords);
+  let visibility = 1.0;
 
   // Blinn-Phong shading
   let shadingColor: vec3<f32> = blinnPhong(fragPosition, normal, albedo);

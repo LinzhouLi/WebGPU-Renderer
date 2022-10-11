@@ -1,5 +1,4 @@
 import { canvasFormat, device } from '../renderer';
-import type { TypedArray } from '../base';
 import {
   vertexBufferFactory,
   bindGroupFactory

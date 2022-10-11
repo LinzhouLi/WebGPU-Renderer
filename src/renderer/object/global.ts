@@ -50,24 +50,6 @@ class GlobalObject {
 
   }
 
-  // createRenderBindGroup() {
-    
-  //   return bindGroupFactory.create(
-  //     [ 'camera', 'pointLight', 'shadowMapSampler', 'shadowMap' ],
-  //     this.bindGroupResources
-  //   );
-
-  // }
-
-  // createShadowBindGroup() {
-
-  //   return bindGroupFactory.create(
-  //     [ 'pointLight' ],
-  //     this.bindGroupResources
-  //   );
-
-  // }
-
   public update() {
 
     // camera (position, view matrix, projection matrix)
