@@ -3,7 +3,7 @@ import {
   vertexBufferFactory,
   bindGroupFactory
 } from '../base';
-import { RenderableObject } from './RenderableObject';
+import { RenderableObject } from './renderableObject';
 
 
 // skybox shader code
