@@ -125,9 +125,11 @@ class InstancedMesh extends RenderableObject {
     globalResource: { [x: string]: GPUBuffer | GPUTexture | GPUSampler }
   ) {
 
+    const lightType = globalResource.pointLight ? 'pointLight' : 'directionalLight';
+
     const vertexLayout = vertexBufferFactory.createLayout(this.vertexBufferAttributes);
     const { layout, group } = bindGroupFactory.create(
-      [ 'camera', 'pointLight', 'shadowMapSampler', 'textureSampler', 'shadowMap', ...this.resourceAttributes ],
+      [ lightType, 'pointLight', 'shadowMapSampler', 'textureSampler', 'shadowMap', ...this.resourceAttributes ],
       { ...globalResource, ...this.resource }
     );
     
@@ -194,9 +196,11 @@ class InstancedMesh extends RenderableObject {
     let vertexBufferAttributs = ['position'];
     if (this.vertexBufferAttributes.includes('index')) vertexBufferAttributs.push('index');
 
+    const lightType = globalResource.pointLight ? 'pointLight' : 'directionalLight';
+
     const vertexLayout = vertexBufferFactory.createLayout(vertexBufferAttributs);
     const { layout, group } = bindGroupFactory.create(
-      [ 'pointLight', 'instancedTransform' ],
+      [ lightType, 'instancedTransform' ],
       { ...globalResource, ...this.resource }
     );
     

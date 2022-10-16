@@ -53,6 +53,15 @@ const ResourceFormat = {
       type: 'uniform' as GPUBufferBindingType
     } as GPUBufferBindingLayout
   },
+  directionalLight: {
+    type: 'buffer' as ResourceType,
+    label: 'Directional Light Structure', // direction(vec3<f32>), color(vec3<f32>), view projection matrix(mat4x4<f32>)
+    visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+    usage:  GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+    layout: { 
+      type: 'uniform' as GPUBufferBindingType
+    } as GPUBufferBindingLayout
+  },
   viewProjectionMatLight: {
     type: 'buffer' as ResourceType,
     label: 'View Projection Matrix From Light (mat4x4)',

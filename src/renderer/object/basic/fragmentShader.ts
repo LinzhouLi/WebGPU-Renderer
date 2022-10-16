@@ -4,6 +4,7 @@ export function createFragmentShader(attributes: string[], type: string = 'phong
 
   const normalMap = attributes.includes('tangent') && attributes.includes('normalMap');
   const baseMap = attributes.includes('baseMap');
+  const pointLight = attributes.includes('pointLight');
 
   let code: string;
 
@@ -22,8 +23,18 @@ struct PointLight {
   viewProjectionMat: mat4x4<f32>
 };
 
+struct DirectionalLight {
+  direction: vec3<f32>,
+  color: vec3<f32>,
+  viewProjectionMat: mat4x4<f32>
+}
+
 @group(0) @binding(0) var<uniform> camera: Camera;
-@group(0) @binding(1) var<uniform> pointLight: PointLight;
+#if ${pointLight}
+@group(0) @binding(1) var<uniform> light: PointLight;
+#else
+@group(0) @binding(1) var<uniform> light: DirectionalLight;
+#endif
 @group(0) @binding(2) var shadowMapSampler: sampler_comparison;
 @group(0) @binding(3) var textureSampler: sampler;
 @group(0) @binding(4) var shadowMap: texture_depth_2d;
@@ -36,7 +47,7 @@ struct PointLight {
 @group(0) @binding(8) var normalMap: texture_2d<f32>;
 #endif
 
-const bias = 0.002;
+const bias = 1e-4;
 
 const PI: f32 = 3.141592653589793;
 const SMAPLE_NUM: i32 = 16;
@@ -59,6 +70,18 @@ fn rand(uv: vec2<f32>) -> f32 {  // 0 - 1
 	return fract(sin(sn) * c);
 }
 
+fn hardShadow(uv: vec2<f32>, depth: f32) -> f32 {
+
+  var visibility = textureSampleCompare( // Must only be invoked in uniform control flow.
+    shadowMap,
+    shadowMapSampler,
+    uv,
+    depth - bias
+  );
+  if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) { visibility = 1.0; }
+  return visibility;
+
+}
 
 fn PCF(radius: f32, shadowCoords: vec3<f32>) -> f32 {
 
@@ -69,12 +92,7 @@ fn PCF(radius: f32, shadowCoords: vec3<f32>) -> f32 {
   var sum: f32 = 0;
   let radius_tex: f32 = radius / f32(textureDimensions(shadowMap).x);
   for (var i : i32 = 0 ; i < SMAPLE_NUM ; i = i + 1) {
-    sum = sum + textureSampleCompare(
-      shadowMap,
-      shadowMapSampler,
-      shadowCoords.xy + radius_tex * rot_mat * POISSON_DISK_SAMPLES[i],
-      shadowCoords.z - bias
-    );
+    sum = sum + hardShadow(shadowCoords.xy + radius_tex * rot_mat * POISSON_DISK_SAMPLES[i], shadowCoords.z);
   }
   return sum / f32(SMAPLE_NUM);
 
@@ -83,17 +101,21 @@ fn PCF(radius: f32, shadowCoords: vec3<f32>) -> f32 {
 
 fn blinnPhong(position: vec3<f32>, normal: vec3<f32>, albedo: vec3<f32>) -> vec3<f32> {
 
-  let lightDir = normalize(pointLight.position - position);
+#if ${pointLight}
+  let lightDir = normalize(light.position - position);
+#else
+  let lightDir = normalize(light.direction);
+#endif
   let viewDir = normalize(camera.position - position);
   let halfVec = normalize(lightDir + viewDir);
 
-  let ambient = albedo * pointLight.color * 0.2;
+  let ambient = albedo * light.color * 0.2;
 
   let diff = max(dot(lightDir, normal), 0.0);
-  let diffuse = diff * pointLight.color * albedo;
+  let diffuse = diff * light.color * albedo;
 
   let spec = pow(max(dot(normal, halfVec), 0.0), 32);
-  let specular = spec * pointLight.color * albedo;
+  let specular = spec * light.color * albedo;
 
   return ambient + diffuse + specular;
 
@@ -136,12 +158,9 @@ fn main(
     shadowPos.xy / shadowPos.w * vec2<f32>(0.5, -0.5) + 0.5, // Convert shadowPos XY to (0, 1) to fit texture UV
     shadowPos.z / shadowPos.w
   );
-  // let visibility = textureSampleCompare(
-  //   shadowMap, shadowMapSampler, 
-  //   shadowCoords.xy, shadowCoords.z - bias
-  // );
-  // let visibility = PCF(5.0, shadowCoords);
-  let visibility = 1.0;
+  // let visibility = hardShadow(shadowCoords.xy, shadowCoords.z);
+  let visibility = PCF(5.0, shadowCoords);
+  // let visibility = 1.0;
 
   // Blinn-Phong shading
   let shadingColor: vec3<f32> = blinnPhong(fragPosition, normal, albedo);

@@ -40,7 +40,7 @@ class Main {
 
     await this.renderer.initWebGPU();
     await this.initScene();
-    this.renderer.addRenderableObject(this.crowdManager.renderableObject);
+    // this.renderer.addRenderableObject(this.crowdManager.renderableObject);
     await this.renderer.initScene(this.scene);
 
   }
@@ -65,13 +65,23 @@ class Main {
     this.scene.add(camera)
     new OrbitControls(camera, this.canvas); // controls
 
-    // light 
-    let light = new THREE.PointLight(0xffffff, 1, 100);
-    light.shadow.camera = new THREE.PerspectiveCamera(50, 1, 1, 10);
-    light.shadow.camera.position.set( -3, 4, -3 );
-    light.shadow.camera.lookAt( 0, 0, 0 );
-    light.position.set( -3, 4, -3 );
-    this.scene.add(light);
+    // point light 
+    // let pointLight = new THREE.PointLight(0xffffff, 1, 100);
+    // pointLight.shadow.camera = new THREE.PerspectiveCamera(50, 1, 1, 15);
+    // pointLight.shadow.camera.position.set( -3, 4, -3 );
+    // pointLight.shadow.camera.lookAt( 0, 0, 0 );
+    // pointLight.position.set( -3, 4, -3 );
+    // this.scene.add(pointLight);
+
+    // directional light
+    let height = 10, width = 10;
+    let directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+    directionalLight.shadow.camera = new THREE.OrthographicCamera(width / - 2, width / 2, height / 2, height / - 2, 1, 1000);
+    directionalLight.shadow.camera.position.set( -10, 20, -10 );
+    directionalLight.shadow.camera.lookAt( 0, 0, 0 );
+    directionalLight.position.set( -10, 20, -10 );
+    this.scene.add(directionalLight);
+    console.log(directionalLight)
 
     // mesh
     {
@@ -93,7 +103,7 @@ class Main {
       // animation
       this.mixer = new THREE.AnimationMixer(mesh);
       mesh.rotation.set(0, -0.75 * Math.PI, 0)
-      // this.scene.add( mesh );
+      this.scene.add( mesh );
     }
 
     {

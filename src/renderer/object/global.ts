@@ -9,28 +9,36 @@ import {
 class GlobalObject {
 
   private camera: THREE.PerspectiveCamera;
-  private light: THREE.PointLight;
+  private light: THREE.PointLight | THREE.DirectionalLight;
+  private lightType: 'pointLight' | 'directionalLight';
   private scene: THREE.Scene;
 
   private resourceAttributes: string[]; // resource name
   private resourceCPUData: { [x: string]: TypedArray | ImageBitmap | ImageBitmapSource }; // resource in CPU
   public resource: { [x: string]: GPUBuffer | GPUTexture | GPUSampler }; // resource in GPU
 
-  constructor(camera: THREE.PerspectiveCamera, light: THREE.PointLight, scene: THREE.Scene) {
+  constructor(camera: THREE.PerspectiveCamera, light: THREE.PointLight | THREE.DirectionalLight, scene: THREE.Scene) {
 
     this.camera = camera;
     this.light = light;
     this.scene = scene;
+    this.lightType = light instanceof THREE.PointLight ? 'pointLight' : 'directionalLight';
 
   }
 
   public async initResource() {
 
     this.resourceAttributes = [
-      'camera', 'pointLight', 
+      'camera', this.lightType, 
       'shadowMapSampler', 'shadowMap',
       'textureSampler', 'skyboxMap'
     ];
+
+    const lightPosOrDir = this.lightType === 'pointLight' ?
+      this.light.position : 
+      this.light.position.clone().sub( // normalize(position - target_postion)
+        (this.light as THREE.DirectionalLight).target.position
+      ).normalize();
 
     this.resourceCPUData = {
       camera: new Float32Array([
@@ -38,8 +46,8 @@ class GlobalObject {
         ...this.camera.matrixWorldInverse.toArray(),
         ...this.camera.projectionMatrix.toArray()
       ]),
-      pointLight : new Float32Array([
-        ...this.light.position.toArray(), 0,
+      [this.lightType]: new Float32Array([
+        ...lightPosOrDir.toArray(), 0,
         ...this.light.color.toArray(), 0,
         ...this.light.shadow.camera.projectionMatrix.multiply(this.light.shadow.camera.matrixWorldInverse).toArray()
       ]),

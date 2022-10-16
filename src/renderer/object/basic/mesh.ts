@@ -98,10 +98,12 @@ class Mesh extends RenderableObject {
     bundleEncoder: GPURenderBundleEncoder,
     globalResource: { [x: string]: GPUBuffer | GPUTexture | GPUSampler }
   ) {
+
+    const lightType = globalResource.pointLight ? 'pointLight' : 'directionalLight';
     
     const vertexLayout = vertexBufferFactory.createLayout(this.vertexBufferAttributes);
     const { layout, group } = bindGroupFactory.create(
-      [ 'camera', 'pointLight', 'shadowMapSampler', 'textureSampler', 'shadowMap', ...this.resourceAttributes ],
+      [ 'camera', lightType, 'shadowMapSampler', 'textureSampler', 'shadowMap', ...this.resourceAttributes ],
       { ...globalResource, ...this.resource }
     );
     
@@ -168,9 +170,11 @@ class Mesh extends RenderableObject {
     let vertexBufferAttributs = ['position'];
     if (this.vertexBufferAttributes.includes('index')) vertexBufferAttributs.push('index');
 
+    const lightType = globalResource.pointLight ? 'pointLight' : 'directionalLight';
+
     const vertexLayout = vertexBufferFactory.createLayout(vertexBufferAttributs);
     const { layout, group } = bindGroupFactory.create(
-      [ 'pointLight', 'transform' ],
+      [ lightType, 'transform' ],
       { ...globalResource, ...this.resource }
     );
     

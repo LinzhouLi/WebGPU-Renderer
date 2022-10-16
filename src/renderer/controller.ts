@@ -72,7 +72,7 @@ class RenderController {
 
   private scene: THREE.Scene;
   private camera: THREE.PerspectiveCamera;
-  private light: THREE.PointLight;
+  private light: THREE.PointLight | THREE.DirectionalLight;
 
   public globalObject: GlobalObject;
   public objectList: RenderableObject[];
@@ -116,11 +116,11 @@ class RenderController {
         else 
           throw new Error('More Than One Camera');
       }
-      else if (obj instanceof THREE.PointLight) {
+      else if (obj instanceof THREE.PointLight || obj instanceof THREE.DirectionalLight) {
         if (this.light === null) 
           this.light = obj;
         else 
-          throw new Error('More Than One PointLight');
+          throw new Error('More Than One Light');
       } // @ts-ignore
       else if (obj.isMesh) {
         this.objectList.push(new Mesh(obj as THREE.Mesh));

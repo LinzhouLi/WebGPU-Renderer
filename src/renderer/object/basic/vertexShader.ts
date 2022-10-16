@@ -3,6 +3,7 @@ import { wgsl } from '../../../3rd-party/wgsl-preprocessor';
 export function createVertexShader(attributes: string[], pass: ('render' | 'shadow' | 'skybox') = 'render') {
 
   const tangent = attributes.includes('tangent') && attributes.includes('normalMap');
+  const pointLight = attributes.includes('pointLight');
 
   let code: string;
 
@@ -21,13 +22,23 @@ struct PointLight {
   viewProjectionMat: mat4x4<f32>
 };
 
+struct DirectionalLight {
+  direction: vec3<f32>,
+  color: vec3<f32>,
+  viewProjectionMat: mat4x4<f32>
+}
+
 struct Transform {
   modelMat: mat4x4<f32>,
   normalMat : mat3x3<f32>
 };
 
 @group(0) @binding(0) var<uniform> camera: Camera;
-@group(0) @binding(1) var<uniform> pointLight: PointLight;
+#if ${pointLight}
+@group(0) @binding(1) var<uniform> light: PointLight;
+#else
+@group(0) @binding(1) var<uniform> light: DirectionalLight;
+#endif
 
 @group(0) @binding(5) var<uniform> transform : Transform;
 
@@ -61,7 +72,7 @@ fn main(
   output.fragPosition = (transform.modelMat * pos).xyz;
   output.fragNormal = outNormal;
   output.fragUV = uv;
-  output.shadowPos = pointLight.viewProjectionMat * transform.modelMat * pos; // 在fragment shader中进行透视除法, 否则插值出错
+  output.shadowPos = light.viewProjectionMat * transform.modelMat * pos; // 在fragment shader中进行透视除法, 否则插值出错
 
 #if ${tangent}
   let outTangent = transform.normalMat * tangent.xyz;
@@ -84,19 +95,29 @@ struct PointLight {
   viewProjectionMat: mat4x4<f32>
 };
 
+struct DirectionalLight {
+  direction: vec3<f32>,
+  color: vec3<f32>,
+  viewProjectionMat: mat4x4<f32>
+}
+
 struct Transform {
   modelMat: mat4x4<f32>,
   normalMat : mat3x3<f32>
 };
 
-@group(0) @binding(0) var<uniform> pointLight: PointLight;
+#if ${pointLight}
+@group(0) @binding(0) var<uniform> light: PointLight;
+#else
+@group(0) @binding(0) var<uniform> light: DirectionalLight;
+#endif
 @group(0) @binding(1) var<uniform> transform: Transform;
 
 @vertex
 fn main( @location(0) position : vec3<f32>, ) -> @builtin(position) vec4<f32> {
   
   let pos = vec4<f32>(position, 1.0);
-  return pointLight.viewProjectionMat * transform.modelMat * pos;
+  return light.viewProjectionMat * transform.modelMat * pos;
 
 }
 `
