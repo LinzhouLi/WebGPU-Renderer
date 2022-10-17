@@ -15,18 +15,25 @@ struct Camera {
   position: vec3<f32>,
   viewMat: mat4x4<f32>,
   projectionMat: mat4x4<f32>
-};
+}
 
 struct PointLight {
   position: vec3<f32>,
   color: vec3<f32>,
   viewProjectionMat: mat4x4<f32>
-};
+}
 
 struct DirectionalLight {
   direction: vec3<f32>,
   color: vec3<f32>,
   viewProjectionMat: mat4x4<f32>
+}
+
+struct PBRMaterial {
+  roughness: f32,       // [0, 1]
+  metalness: f32,       // {0, 1}
+  albedo: vec3<f32>,    // diffuse color 
+  specular: vec3<f32>   // F0: normal-incidence Fresnel reflectance
 }
 
 @group(0) @binding(0) var<uniform> camera: Camera;
@@ -48,6 +55,7 @@ struct DirectionalLight {
 #endif
 
 const bias = 1e-4;
+const eps = 1e-5;
 
 const PI: f32 = 3.141592653589793;
 const SMAPLE_NUM: i32 = 16;
@@ -68,6 +76,64 @@ fn rand(uv: vec2<f32>) -> f32 {  // 0 - 1
 	let dt: f32 = dot( uv, vec2<f32>(a, b) ); 
   let sn: f32 = dt - PI * floor(dt / PI); // mod
 	return fract(sin(sn) * c);
+}
+
+fn lerp(a: f32, b: f32, s: f32) -> f32 {
+  return a * (1.0 - s) + b * s;
+}
+
+fn lerp_vec3(a: vec3<f32>, b: vec3<f32>, s: f32) -> vec3<f32> {
+  return vec3<f32>(lerp(a.x, b.x, s), lerp(a.y, b.y, s), lerp(a.z, b.z, s));
+}
+
+fn pow5(x: f32) -> f32 {
+  let y = 1.0 - x;
+  return pow(2, (-5.55473 * y - 6.98316) * y);
+}
+
+fn NDF_GGX(alpha: f32, NoH: f32) -> f32 { // normal distribution function (GGX)
+  let NoH_ = saturate(NoH);
+  let alpha2 = alpha * alpha;
+  let d = NoH_ * NoH_ * (alpha2 - 1.0) + 1.0;
+  return alpha2 / (PI * d * d);
+}
+
+fn Fresnel(F0: vec3<f32>, VoH: f32) -> vec3<f32> { // Fresnel reflectance (Schlick approximation)
+  let VoH_ = saturate(VoH);
+  let Fc = pow5(1 - VoH_);
+  return saturate(50.0 * F0.g) * Fc + (1.0 - Fc) * F0;
+}
+
+fn G2_with_denominator(alpha: f32, NoL: f32, NoV: f32) -> f32 {
+  let NoL_ = abs(NoL);
+  let NoV_ = abs(NoV);
+  return 0.5 / (lerp(2 * NoL_ * NoV_, NoL_ + NoV_, alpha) + eps);
+}
+
+fn PBR(
+  N: vec3<f32>, V: vec3<f32>, L: vec3<f32>, 
+  material: PBRMaterial, 
+  radiance: vec3<f32>
+) -> vec3<f32> {
+
+  let H = normalize(V + L);
+  let NoV = dot(N, V);
+  let NoL = dot(N, L);
+  let NoH = dot(N, H);
+  let VoH = dot(V, H);
+  let alpha = material.roughness * material.roughness;
+
+  let F0 = lerp_vec3(vec3<f32>(0.04), material.albedo, material.metalness);
+
+  let G = G2_with_denominator(alpha, NoL, NoV);
+  let D = NDF_GGX(alpha, NoH);
+  let F = Fresnel(F0, VoH);
+  let specular = G * D * F;
+
+  let diffuse = material.albedo / PI * (1.0 - F) * (1.0 - material.metalness);
+
+  return (specular + diffuse) * radiance;
+
 }
 
 fn hardShadow(uv: vec2<f32>, depth: f32) -> f32 {
@@ -163,7 +229,21 @@ fn main(
   // let visibility = 1.0;
 
   // Blinn-Phong shading
-  let shadingColor: vec3<f32> = blinnPhong(fragPosition, normal, albedo);
+  // let shadingColor: vec3<f32> = blinnPhong(fragPosition, normal, albedo);
+  var material: PBRMaterial;
+  material.roughness = 0.5;
+  material.metalness = 1.0;
+  material.albedo = vec3<f32>(1.0, 0.782, 0.344);
+  material.specular = vec3<f32>(1.0, 0.782, 0.344);
+  var shadingColor: vec3<f32> = PBR(
+    normal, normalize(camera.position - fragPosition), normalize(light.direction),
+    material, light.color * PI
+  );
+
+  let ambient = vec3<f32>(0.03) * material.albedo; // * ao
+  shadingColor = shadingColor + ambient;
+  // shadingColor = shadingColor / (shadingColor + vec3<f32>(1.0));
+  // shadingColor = pow(shadingColor, vec3(1.0/2.2));
 
   return vec4<f32>(visibility * shadingColor, 1.0);
 
