@@ -3,7 +3,12 @@ import { wgsl } from '../../../3rd-party/wgsl-preprocessor';
 export function createFragmentShader(attributes: string[], type: string = 'phong') {
 
   const normalMap = attributes.includes('tangent') && attributes.includes('normalMap');
+
   const baseMap = attributes.includes('baseMap');
+  const roughnessMap = attributes.includes('roughnessMap');
+  const metalnessMap = attributes.includes('metalnessMap');
+  const specularMap = attributes.includes('specularMap');
+
   const pointLight = attributes.includes('pointLight');
 
   let code: string;
@@ -46,7 +51,7 @@ struct PBRMaterial {
 @group(0) @binding(3) var textureSampler: sampler;
 @group(0) @binding(4) var shadowMap: texture_depth_2d;
 
-@group(0) @binding(6) var<uniform> color: vec3<f32>;
+@group(0) @binding(6) var<uniform> material: PBRMaterial;
 #if ${baseMap}
 @group(0) @binding(7) var baseMap: texture_2d<f32>;
 #endif
@@ -104,7 +109,7 @@ fn Fresnel(F0: vec3<f32>, VoH: f32) -> vec3<f32> { // Fresnel reflectance (Schli
   return saturate(50.0 * F0.g) * Fc + (1.0 - Fc) * F0;
 }
 
-fn G2_with_denominator(alpha: f32, NoL: f32, NoV: f32) -> f32 {
+fn G2_with_denom(alpha: f32, NoL: f32, NoV: f32) -> f32 {
   let NoL_ = abs(NoL);
   let NoV_ = abs(NoV);
   return 0.5 / (lerp(2 * NoL_ * NoV_, NoL_ + NoV_, alpha) + eps);
@@ -125,14 +130,14 @@ fn PBR(
 
   let F0 = lerp_vec3(vec3<f32>(0.04), material.albedo, material.metalness);
 
-  let G = G2_with_denominator(alpha, NoL, NoV);
+  let G = G2_with_denom(alpha, NoL, NoV);
   let D = NDF_GGX(alpha, NoH);
   let F = Fresnel(F0, VoH);
   let specular = G * D * F;
 
   let diffuse = material.albedo / PI * (1.0 - F) * (1.0 - material.metalness);
 
-  return (specular + diffuse) * radiance;
+  return PI * (specular + diffuse) * radiance * saturate(NoL);
 
 }
 
@@ -212,11 +217,30 @@ fn main(
   let normal = fragNormal;
 #endif
 
-  // blbedo
-#if ${baseMap}
-  let albedo = textureSample(baseMap, textureSampler, fragUV).xyz * color;
+  // material
+  var localMaterial: PBRMaterial;
+#if ${roughnessMap}
+  localMaterial.roughness = textureSample(roughnessMap, textureSampler, fragUV).x * material.roughness;
 #else
-  let albedo = color;
+  localMaterial.roughness = material.roughness;
+#endif
+
+#if ${metalnessMap}
+  localMaterial.metalness = textureSample(metalnessMap, textureSampler, fragUV).x * material.metalness;
+#else
+  localMaterial.metalness = material.metalness;
+#endif
+  
+#if ${baseMap} // blbedo
+  localMaterial.albedo = textureSample(baseMap, textureSampler, fragUV).xyz * material.albedo;
+#else
+  localMaterial.albedo = material.albedo;
+#endif
+
+#if ${specularMap}
+  localMaterial.specular = textureSample(specularMap, textureSampler, fragUV).xyz * material.specular;
+#else
+  localMaterial.specular = material.specular;
 #endif
 
   // shadow
@@ -229,23 +253,22 @@ fn main(
   // let visibility = 1.0;
 
   // Blinn-Phong shading
-  // let shadingColor: vec3<f32> = blinnPhong(fragPosition, normal, albedo);
-  var material: PBRMaterial;
-  material.roughness = 0.5;
-  material.metalness = 1.0;
-  material.albedo = vec3<f32>(1.0, 0.782, 0.344);
-  material.specular = vec3<f32>(1.0, 0.782, 0.344);
-  var shadingColor: vec3<f32> = PBR(
+  // let shadingColor = blinnPhong(fragPosition, normal, albedo);
+
+  // PBR shading
+  let shadingColor = PBR(
     normal, normalize(camera.position - fragPosition), normalize(light.direction),
-    material, light.color * PI
+    localMaterial, light.color
   );
 
-  let ambient = vec3<f32>(0.03) * material.albedo; // * ao
-  shadingColor = shadingColor + ambient;
-  // shadingColor = shadingColor / (shadingColor + vec3<f32>(1.0));
-  // shadingColor = pow(shadingColor, vec3(1.0/2.2));
+  let ambient = 0.1 * localMaterial.albedo; // * ao
+  var color: vec3<f32> = shadingColor * visibility + ambient;
 
-  return vec4<f32>(visibility * shadingColor, 1.0);
+  // tone mapping
+  // color = color / (color + vec3<f32>(1.0));
+  // color = pow(color, vec3(1.0/2.2));
+
+  return vec4<f32>(color, 1.0);
 
 }
 `

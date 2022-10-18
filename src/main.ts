@@ -109,7 +109,7 @@ class Main {
     {
       const glb = await loader.loadGLTF('genshin/ying.gltf');
       const mesh = glb.scene.children[0].children[1];
-      const material = new THREE.MeshPhongMaterial();
+      const material = new THREE.MeshStandardMaterial();
       material.map = mesh.material.map;
       mesh.material = material;
       mesh.rotation.set(0, -0.75 * Math.PI, 0)
@@ -119,7 +119,10 @@ class Main {
 
     {
       const geometry = new THREE.PlaneGeometry( 30, 30 );
-      const material = new THREE.MeshBasicMaterial({color: 0xffffff});
+      const material = new THREE.MeshStandardMaterial({color: 0xffffff});
+      material.color = new THREE.Color(0.562, 0.565, 0.578);
+      material.roughness = 0.2;
+      material.metalness = 0.0;
       const mesh = new THREE.Mesh( geometry, material );
       mesh.rotation.set(-Math.PI / 2, 0, 0);
       // mesh.position.set(1, 0, 1);

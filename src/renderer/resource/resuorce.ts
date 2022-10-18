@@ -167,6 +167,15 @@ const ResourceFormat = {
       type: 'uniform' as GPUBufferBindingType
     } as GPUBufferBindingLayout
   },
+  PBRMaterial: {
+    type: 'buffer' as ResourceType,
+    label: 'PBR Material Structure', // roughness(f32), metalness(f32), albedo(vec3<f32>), specular(vec3<f32>)
+    visibility: GPUShaderStage.FRAGMENT,
+    usage:  GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+    layout: { 
+      type: 'uniform' as GPUBufferBindingType
+    } as GPUBufferBindingLayout
+  },
   textureSampler: {
     type: 'sampler' as ResourceType,
     label: 'Texture Linear Sampler',

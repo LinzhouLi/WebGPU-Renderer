@@ -10,6 +10,7 @@ import { RenderableObject } from '../renderableObject';
 import { createVertexShader } from './vertexShader';
 import { createFragmentShader } from './fragmentShader';
 
+const defaultSpecular = new THREE.Vector3(0.5, 0.5, 0.5);
 
 class Mesh extends RenderableObject {
 
@@ -64,10 +65,10 @@ class Mesh extends RenderableObject {
   public async initGroupResource() {
 
     const material = this.mesh.material as THREE.MeshStandardMaterial;
-
+    
     let normalMat = new THREE.Matrix3().getNormalMatrix(this.mesh.matrixWorld).toArray();
 
-    this.resourceAttributes = ['transform', 'color'];
+    this.resourceAttributes = ['transform', 'PBRMaterial'];
     this.resourceCPUData = {
       transform: new Float32Array([
         ...this.mesh.matrixWorld.toArray(),
@@ -75,11 +76,15 @@ class Mesh extends RenderableObject {
         ...normalMat.slice(3, 6), 0,          // see https://gpuweb.github.io/gpuweb/wgsl/#alignment
         ...normalMat.slice(6, 9), 0
       ]),
-      color: new Float32Array( 
-        (material.color || new THREE.Color(1, 1, 1)).toArray()
-      )
+      PBRMaterial: new Float32Array([
+        material.roughness,
+        material.metalness, 
+        0, 0, // for alignment
+        ...material.color.toArray(), 0, // @ts-ignore
+        ...(material.specular || defaultSpecular).toArray(), 0
+      ])
     };
-
+    
     if (!!material.map) {
       this.resourceAttributes.push('baseMap');
       this.resourceCPUData.baseMap = material.map.source.data;
@@ -91,7 +96,7 @@ class Mesh extends RenderableObject {
     }
 
     this.resource = await resourceFactory.createResource(this.resourceAttributes, this.resourceCPUData);
-
+    
   }
 
   public async setRenderBundle(
