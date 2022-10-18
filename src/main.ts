@@ -81,7 +81,6 @@ class Main {
     directionalLight.shadow.camera.lookAt( 0, 0, 0 );
     directionalLight.position.set( -10, 20, -10 );
     this.scene.add(directionalLight);
-    console.log(directionalLight)
 
     // mesh
     {
