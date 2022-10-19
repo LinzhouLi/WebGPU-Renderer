@@ -87,8 +87,8 @@ class Main {
       const glb = await loader.loadGLTF('crowd/male.glb');
       const mesh = glb.scene.children[2] as THREE.SkinnedMesh;
       const material = mesh.material as THREE.MeshStandardMaterial;
-      material.map = await loader.loadTexture('crowd/business03.jpg');
-      material.normalMap = await loader.loadTexture('crowd/business03_normal.jpg');
+      material.map = await loader.loadTexture('crowd/business02.jpg');
+      material.normalMap = await loader.loadTexture('crowd/business02_normal.jpg');
 
       // calculate tangent
       await MikkTSpace.ready;
