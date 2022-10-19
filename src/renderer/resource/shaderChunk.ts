@@ -34,7 +34,14 @@ struct PBRMaterial {
 }
 `;
 
-const Definitions = { Camera, PointLight, DirectionalLight, PBRMaterial };
+const Transform = /* wgsl */`
+struct Transform {
+  modelMat: mat4x4<f32>,
+  normalMat : mat3x3<f32>
+};
+`;
+
+const Definitions = { Camera, PointLight, DirectionalLight, PBRMaterial, Transform };
 
 
 // constants
@@ -86,7 +93,11 @@ fn pow5(x: f32) -> f32 { // an approximation of pow5, see https://blog.selfshado
 // shadow
 
 const hardShadow = /* wgsl */`
-fn hardShadow(uv: vec2<f32>, depth: f32) -> f32 {
+fn hardShadow(
+  uv: vec2<f32>, depth: f32, 
+  shadowMap: texture_depth_2d, 
+  shadowMapSampler: sampler_comparison
+) -> f32 {
 
   var visibility = textureSampleCompare( // Must only be invoked in uniform control flow.
     shadowMap,
@@ -101,16 +112,24 @@ fn hardShadow(uv: vec2<f32>, depth: f32) -> f32 {
 `;
 
 const PCF = /* wgsl */`
-fn PCF(radius: f32, shadowCoords: vec3<f32>) -> f32 {
+fn PCF(
+  uv: vec2<f32>, depth: f32,
+  radius: f32, 
+  shadowMap: texture_depth_2d, 
+  shadowMapSampler: sampler_comparison
+) -> f32 {
 
-  let rot_theta: f32 = rand(shadowCoords.xy);
+  let rot_theta: f32 = rand(uv);
   let sin_theta: f32 = sin(rot_theta); let cos_theta: f32 = cos(rot_theta);
   let rot_mat: mat2x2<f32> = mat2x2<f32>(cos_theta, sin_theta, -sin_theta, cos_theta);
 
   var sum: f32 = 0;
   let radius_tex: f32 = radius / f32(textureDimensions(shadowMap).x);
   for (var i : i32 = 0 ; i < SMAPLE_NUM ; i = i + 1) {
-    sum = sum + hardShadow(shadowCoords.xy + radius_tex * rot_mat * POISSON_DISK_SAMPLES[i], shadowCoords.z);
+    sum = sum + hardShadow(
+      uv + radius_tex * rot_mat * POISSON_DISK_SAMPLES[i], depth,
+      shadowMap, shadowMapSampler
+    );
   }
   return sum / f32(SMAPLE_NUM);
 

@@ -1,4 +1,5 @@
 import { wgsl } from '../../../3rd-party/wgsl-preprocessor';
+import { Definitions } from '../../resource/shaderChunk';
 
 export function createVertexShader(attributes: string[], pass: ('render' | 'shadow' | 'skybox') = 'render') {
 
@@ -10,28 +11,10 @@ export function createVertexShader(attributes: string[], pass: ('render' | 'shad
   if (pass === 'render') { // render pass
     code = wgsl
 /* wgsl */`
-struct Camera {
-  position: vec3<f32>,
-  viewMat: mat4x4<f32>,
-  projectionMat: mat4x4<f32>
-};
-
-struct PointLight {
-  position: vec3<f32>,
-  color: vec3<f32>,
-  viewProjectionMat: mat4x4<f32>
-};
-
-struct DirectionalLight {
-  direction: vec3<f32>,
-  color: vec3<f32>,
-  viewProjectionMat: mat4x4<f32>
-}
-
-struct Transform {
-  modelMat: mat4x4<f32>,
-  normalMat : mat3x3<f32>
-};
+${Definitions.Camera}
+${Definitions.PointLight}
+${Definitions.DirectionalLight}
+${Definitions.Transform}
 
 @group(0) @binding(0) var<uniform> camera: Camera;
 #if ${pointLight}

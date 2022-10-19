@@ -129,13 +129,11 @@ fn main(
 #endif
 
   // shadow
-  let shadowCoords: vec3<f32> = vec3<f32>(
-    shadowPos.xy / shadowPos.w * vec2<f32>(0.5, -0.5) + 0.5, // Convert shadowPos XY to (0, 1) to fit texture UV
-    shadowPos.z / shadowPos.w
-  );
-  // let visibility = hardShadow(shadowCoords.xy, shadowCoords.z);
-  let visibility = PCF(5.0, shadowCoords);
+  let shadowUV = shadowPos.xy / shadowPos.w * vec2<f32>(0.5, -0.5) + 0.5;
+  let shadowDepth = shadowPos.z / shadowPos.w;
   // let visibility = 1.0;
+  // let visibility = hardShadow(shadowUV, shadowDepth, shadowMap, shadowMapSampler);
+  let visibility = PCF(shadowUV, shadowDepth, 5.0, shadowMap, shadowMapSampler);
 
   // Blinn-Phong shading
   // let shadingColor = blinnPhong(fragPosition, normal, albedo);
