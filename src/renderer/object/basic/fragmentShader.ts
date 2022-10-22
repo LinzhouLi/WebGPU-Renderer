@@ -30,10 +30,13 @@ ${Definitions.PBRMaterial}
 #else
 @group(0) @binding(1) var<uniform> light: DirectionalLight;
 #endif
-@group(0) @binding(2) var shadowMapSampler: sampler_comparison;
-@group(0) @binding(3) var textureSampler: sampler;
-@group(0) @binding(4) var shadowMap: texture_depth_2d;
+@group(0) @binding(2) var shadowMap: texture_depth_2d;
+
+@group(0) @binding(3) var compareSampler: sampler_comparison;
+@group(0) @binding(4) var linearSampler: sampler;
+
 @group(0) @binding(5) var Emu: texture_2d<f32>;
+@group(0) @binding(6) var Eavg: texture_1d<f32>;
 
 @group(1) @binding(1) var<uniform> material: PBRMaterial;
 #if ${baseMap}
@@ -96,7 +99,7 @@ fn main(
 #if ${normalMap}
   let tbn: mat3x3<f32> = mat3x3<f32>(tangent, biTangent, fragNormal);
   let normal_del: vec3<f32> = normalize(
-    textureSample(normalMap, textureSampler, fragUV).xyz - vec3<f32>(0.5, 0.5, 0.5)
+    textureSample(normalMap, linearSampler, fragUV).xyz - vec3<f32>(0.5, 0.5, 0.5)
   );
   let normal = normalize(tbn * normal_del.xyz);
 #else
@@ -106,26 +109,27 @@ fn main(
   // material
   var localMaterial: PBRMaterial;
 #if ${roughnessMap}
-  localMaterial.roughness = textureSample(roughnessMap, textureSampler, fragUV).x * material.roughness;
+  localMaterial.roughness = textureSample(roughnessMap, linearSampler, fragUV).x * material.roughness;
 #else
   localMaterial.roughness = material.roughness;
 #endif
 
 #if ${metalnessMap}
-  localMaterial.metalness = textureSample(metalnessMap, textureSampler, fragUV).x * material.metalness;
+  localMaterial.metalness = textureSample(metalnessMap, linearSampler, fragUV).x * material.metalness;
 #else
   localMaterial.metalness = material.metalness;
 #endif
   
 #if ${baseMap} // blbedo
-  localMaterial.albedo = textureSample(baseMap, textureSampler, fragUV).xyz * material.albedo;
+  localMaterial.albedo = textureSample(baseMap, linearSampler, fragUV).xyz * material.albedo;
 #else
   // localMaterial.albedo = material.albedo;
-  localMaterial.albedo = textureSample(Emu, textureSampler, fragUV).xyz;
+  localMaterial.albedo = bilinearSampleTexture(Emu, vec2<u32>(64), fragUV).xyz;
+  localMaterial.albedo = linearSampleTexture(Eavg, 64, fragUV.x).xyz;
 #endif
 
 #if ${specularMap}
-  localMaterial.specular = textureSample(specularMap, textureSampler, fragUV).xyz * material.specular;
+  localMaterial.specular = textureSample(specularMap, linearSampler, fragUV).xyz * material.specular;
 #else
   localMaterial.specular = material.specular;
 #endif
@@ -134,8 +138,8 @@ fn main(
   let shadowUV = shadowPos.xy / shadowPos.w * vec2<f32>(0.5, -0.5) + 0.5;
   let shadowDepth = shadowPos.z / shadowPos.w;
   // let visibility = 1.0;
-  // let visibility = hardShadow(shadowUV, shadowDepth, shadowMap, shadowMapSampler);
-  let visibility = PCF(shadowUV, shadowDepth, 5.0, shadowMap, shadowMapSampler);
+  // let visibility = hardShadow(shadowUV, shadowDepth, shadowMap, compareSampler);
+  let visibility = PCF(shadowUV, shadowDepth, 5.0, shadowMap, compareSampler);
 
   // Blinn-Phong shading
   // let shadingColor = blinnPhong(fragPosition, normal, albedo);

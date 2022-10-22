@@ -2,12 +2,11 @@
 // see https://blog.selfshadow.com/publications/s2017-shading-course/imageworks/s2017_pbs_imageworks_slides_v2.pdf
 
 import { device } from '../renderer';
-import { bindGroupFactory } from '../base';
 import { Constants, Sampling, PBR, ToolFunctions } from '../resource/shaderChunk';
 
 const EmuComputeShader = /* wgsl */`
 override resolution: u32 = 32;
-@group(0) @binding(0) var<storage, read_write> Emu: array<f32>;
+@group(0) @binding(0) var Emu: texture_storage_2d<r32float, write>;
 
 ${Constants}
 ${ToolFunctions}
@@ -52,7 +51,6 @@ fn energyloss(roughness: f32, NoV: f32) -> f32 {
   integrateEnergy = integrateEnergy * 4.0 / f32(SANPLE_COUNT);
 
   return (1.0 - integrateEnergy);
-  // return integrateEnergy;
 
 }
 
@@ -62,11 +60,10 @@ fn main(@builtin(global_invocation_id) global_index : vec3<u32>) {
   if(global_index.x >= resolution || global_index.y >= resolution) { return; }
 
   let roughness = (f32(global_index.x) + 0.5) / f32(resolution);  // x: roughness
-  // let roughness = 0.07;
   let NoV = (f32(global_index.y) + 0.5) / f32(resolution);        // y: cosine
-  // let NoV = 0.05;
+  
   let result = energyloss(roughness, NoV);
-  Emu[global_index.x * resolution + global_index.y] =  result;
+  textureStore(Emu, vec2<i32>(global_index.xy), vec4<f32>(result, 0.0, 0.0, 1.0));
   return;
 
   // let sample2D = Hammersley(global_index.x * 16 + global_index.y, 256);
@@ -77,8 +74,8 @@ fn main(@builtin(global_invocation_id) global_index : vec3<u32>) {
 
 const EavgComputeShader = /* wgsl */`
 override resolution: u32 = 32;
-@group(0) @binding(0) var<storage, read_write> Emu: array<f32>;
-@group(0) @binding(1) var<storage, read_write> Eavg: array<f32>;
+@group(0) @binding(0) var Emu: texture_2d<f32>;
+@group(0) @binding(1) var Eavg: texture_storage_1d<r32float, write>;
 
 @compute @workgroup_size(16)
 fn main(@builtin(global_invocation_id) global_index : vec3<u32>) {
@@ -87,10 +84,11 @@ fn main(@builtin(global_invocation_id) global_index : vec3<u32>) {
 
   var result: f32 = 0.0;
   for (var i: u32 = 0; i < resolution; i = i + 1) {
-    result = result + Emu[global_index.x * resolution + i];
+    result = result + textureLoad(Emu, vec2<i32>(i32(global_index.x), i32(i)), 0).x;
   }
-
-  Eavg[global_index.x] = result / f32(resolution);
+  result = result / f32(resolution);
+  
+  textureStore(Eavg, i32(global_index.x), vec4<f32>(result, 0.0, 0.0, 1.0));
   return;
 
 }
@@ -111,10 +109,50 @@ class MultiBounceBRDF {
 
   public async initComputePipeline(
     globalResource: { [x: string]: GPUBuffer | GPUTexture | GPUSampler }
-  ) {
+  ) { // @ts-ignore
 
-    this.EmuBindGroup = bindGroupFactory.create(['EmuBuffer'], globalResource);
-    this.EavgBindGroup = bindGroupFactory.create(['EmuBuffer', 'EavgBuffer'], globalResource);
+    this.EmuBindGroup = { };
+    this.EmuBindGroup.layout = device.createBindGroupLayout({
+      label: 'Emu precompute bind group layout',
+      entries: [{
+        binding: 0,
+        visibility: GPUShaderStage.COMPUTE,
+        storageTexture: { access: 'write-only', format: 'r32float', viewDimension: '2d' }
+      }]
+    });
+    this.EmuBindGroup.group = device.createBindGroup({
+      label: 'Emu precompute bind group',
+      layout: this.EmuBindGroup.layout,
+      entries: [{ 
+        binding: 0, 
+        resource: (globalResource.Emu as GPUTexture).createView() 
+      }]
+    }); // @ts-ignore
+    
+    this.EavgBindGroup = { };
+    this.EavgBindGroup.layout = device.createBindGroupLayout({
+      label: 'Eavg precompute bind group layout',
+      entries: [{
+        binding: 0,
+        visibility: GPUShaderStage.COMPUTE,
+        texture: { sampleType: 'unfilterable-float', viewDimension: '2d' }
+      }, {
+        binding: 1,
+        visibility: GPUShaderStage.COMPUTE,
+        storageTexture: { access: 'write-only', format: 'r32float', viewDimension: '1d' }
+      }]
+    });
+    this.EavgBindGroup.group = device.createBindGroup({
+      label: 'Eavg precompute bind group',
+      layout: this.EavgBindGroup.layout,
+      entries: [{ 
+        binding: 0, 
+        resource: (globalResource.Emu as GPUTexture).createView() 
+      }, {
+        binding: 1, 
+        resource: (globalResource.Eavg as GPUTexture).createView() 
+      }]
+    });
 
     this.EmuComputePipeline = await device.createComputePipelineAsync({
       label: "PreCompute pipeline for Multi Bounce BRDF (Emu)",
@@ -127,7 +165,7 @@ class MultiBounceBRDF {
         }
       }
     });
-
+    
     this.EavgComputePipeline = await device.createComputePipelineAsync({
       label: "PreCompute pipeline for Multi Bounce BRDF (Eavg)",
       layout: device.createPipelineLayout({ bindGroupLayouts: [this.EavgBindGroup.layout] }),
@@ -162,24 +200,6 @@ class MultiBounceBRDF {
     );
 
     passEncoder.end();
-
-    commandEncoder.copyBufferToTexture({ // source
-      buffer: globalResource.EmuBuffer as GPUBuffer,
-      bytesPerRow: MultiBounceBRDF.EmuResolution * 4
-    }, { // destination
-      texture: globalResource.Emu as GPUTexture,
-    }, [ // copy size
-      MultiBounceBRDF.EmuResolution, MultiBounceBRDF.EmuResolution
-    ]);
-
-    commandEncoder.copyBufferToTexture({ // source
-      buffer: globalResource.EavgBuffer as GPUBuffer,
-      bytesPerRow: MultiBounceBRDF.EmuResolution * 4
-    }, { // destination
-      texture: globalResource.Eavg as GPUTexture
-    }, [ // copy size
-      MultiBounceBRDF.EmuResolution
-    ]);
 
     return commandEncoder.finish();
 

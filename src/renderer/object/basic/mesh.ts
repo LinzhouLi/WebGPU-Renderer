@@ -108,7 +108,11 @@ class Mesh extends RenderableObject {
     
     const vertexLayout = vertexBufferFactory.createLayout(this.vertexBufferAttributes);
     const gloablBind = bindGroupFactory.create(
-      [ 'camera', lightType, 'shadowMapSampler', 'textureSampler', 'shadowMap', 'Emu' ],
+      [ 
+        'camera', lightType, 'shadowMap',
+        'compareSampler', 'linearSampler',
+        'Emu', 'Eavg',
+      ],
       globalResource
     );
     const localBind = bindGroupFactory.create(

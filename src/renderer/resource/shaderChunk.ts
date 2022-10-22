@@ -1,3 +1,4 @@
+import { MultiBounceBRDF } from '../precompute/multiBounceBRDF';
 
 // structue definition
 
@@ -64,11 +65,15 @@ fn rand(uv: vec2<f32>) -> f32 {  // 0 - 1
 }
 
 fn lerp(a: f32, b: f32, s: f32) -> f32 {
-  return a * (1.0 - s) + b * s;
+  return fma(a, 1.0 - s, b * s);
 }
 
 fn lerp_vec3(a: vec3<f32>, b: vec3<f32>, s: f32) -> vec3<f32> {
-  return vec3<f32>(lerp(a.x, b.x, s), lerp(a.y, b.y, s), lerp(a.z, b.z, s));
+  return fma(a, vec3<f32>(1.0 - s), b * s);
+}
+
+fn lerp_vec4(a: vec4<f32>, b: vec4<f32>, s: f32) -> vec4<f32> {
+  return fma(a, vec4<f32>(1.0 - s), b * s);
 }
 
 fn pow5(x: f32) -> f32 { // an approximation of pow5, see https://blog.selfshadow.com/publications/s2013-shading-course/karis/s2013_pbs_epic_notes_v2.pdf
@@ -78,6 +83,28 @@ fn pow5(x: f32) -> f32 { // an approximation of pow5, see https://blog.selfshado
 
 fn get_mod(x: f32, y:f32) -> f32 {
   return (x - y * floor(x / y));
+}
+
+fn bilinearSampleTexture(texture: texture_2d<f32>, textureSize: vec2<u32>, uv: vec2<f32>) -> vec4<f32> {
+  let coord = clamp(
+    uv * vec2<f32>(textureSize),
+    vec2<f32>(0.0), vec2<f32>(textureSize - 1)
+  );
+  var x: vec4<f32>; var y: vec4<f32>;
+  x = textureLoad(texture, vec2<i32>(coord) + vec2<i32>(0, 0), 0);
+  y = textureLoad(texture, vec2<i32>(coord) + vec2<i32>(0, 1), 0);
+  let p = lerp_vec4(x, y, fract(coord.y));
+  x = textureLoad(texture, vec2<i32>(coord) + vec2<i32>(1, 0), 0);
+  y = textureLoad(texture, vec2<i32>(coord) + vec2<i32>(1, 1), 0);
+  let q = lerp_vec4(x, y, fract(coord.y));
+  return lerp_vec4(p, q, fract(coord.x));
+}
+
+fn linearSampleTexture(texture: texture_1d<f32>, textureSize: u32, u: f32) -> vec4<f32> {
+  let coord = clamp(u * f32(textureSize), 0.0, f32(textureSize - 1));
+  let x = textureLoad(texture, i32(coord) + 0, 0);
+  let y = textureLoad(texture, i32(coord) + 1, 0);
+  return lerp_vec4(x, y, fract(coord));
 }
 `;
 

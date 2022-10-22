@@ -157,12 +157,12 @@ class RenderController {
   }
 
   public async precompute() {
-
+    
     device.queue.submit([
       this.multiBounceBRDF.run(this.globalObject.resource)
     ]);
     await device.queue.onSubmittedWorkDone();
-
+    
   }
 
   public async initRenderPass() {

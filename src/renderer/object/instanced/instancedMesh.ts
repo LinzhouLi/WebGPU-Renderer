@@ -129,7 +129,7 @@ class InstancedMesh extends RenderableObject {
 
     const vertexLayout = vertexBufferFactory.createLayout(this.vertexBufferAttributes);
     const { layout, group } = bindGroupFactory.create(
-      [ lightType, 'pointLight', 'shadowMapSampler', 'textureSampler', 'shadowMap', ...this.resourceAttributes ],
+      [ lightType, 'pointLight', 'shadowMapSampler', 'linearSampler', 'shadowMap', ...this.resourceAttributes ],
       { ...globalResource, ...this.resource }
     );
     

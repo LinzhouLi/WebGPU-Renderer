@@ -29,7 +29,7 @@ struct InstanceInfo {
 @group(0) @binding(0) var<uniform> camera: Camera;
 @group(0) @binding(1) var<uniform> pointLight: PointLight;
 @group(0) @binding(2) var shadowMapSampler: sampler_comparison;
-@group(0) @binding(3) var textureSampler: sampler;
+@group(0) @binding(3) var linearSampler: sampler;
 @group(0) @binding(4) var shadowMap: texture_depth_2d;
 
 @group(0) @binding(6) var<storage, read> instancesInfo: array<InstanceInfo>;
@@ -124,7 +124,7 @@ fn main(
 #if ${normalMapArray}
   let tbn: mat3x3<f32> = mat3x3<f32>(tangent, biTangent, fragNormal);
   let normal_del: vec3<f32> = normalize( // transform texture array index from u32 to i32
-    textureSample(normalMap, textureSampler, fragUV, i32(info.textureIndex)).xyz - vec3<f32>(0.5, 0.5, 0.5)
+    textureSample(normalMap, linearSampler, fragUV, i32(info.textureIndex)).xyz - vec3<f32>(0.5, 0.5, 0.5)
   );
   let normal = normalize(tbn * normal_del.xyz);
 #else
@@ -133,7 +133,7 @@ fn main(
 
   // blbedo
 #if ${baseMapArray}
-  let albedo = textureSample(baseMap, textureSampler, fragUV, i32(info.textureIndex)).xyz * colors[index];
+  let albedo = textureSample(baseMap, linearSampler, fragUV, i32(info.textureIndex)).xyz * colors[index];
 #else
   let albedo = colors[index];
 #endif

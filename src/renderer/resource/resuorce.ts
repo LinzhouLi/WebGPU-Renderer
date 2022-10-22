@@ -81,17 +81,6 @@ const ResourceFormat = {
       type: 'uniform' as GPUBufferBindingType
     } as GPUBufferBindingLayout
   },
-  shadowMapSampler: {
-    type: 'sampler' as ResourceType,
-    label: 'Shadow Map Sampler',
-    visibility: GPUShaderStage.FRAGMENT,
-    compare: 'less' as GPUCompareFunction,
-    magFilter: 'nearest' as GPUFilterMode,
-    minFilter: 'nearest' as GPUFilterMode,
-    layout: { 
-      type: 'comparison' as GPUSamplerBindingType 
-    } as GPUSamplerBindingLayout
-  },
   shadowMap: {
     type: 'texture' as ResourceType,
     label: 'Shadow Map',
@@ -105,6 +94,39 @@ const ResourceFormat = {
       viewDimension: '2d' as GPUTextureViewDimension
     } as GPUTextureBindingLayout
   },
+
+  // sampler
+  compareSampler: {
+    type: 'sampler' as ResourceType,
+    label: 'Shadow Map Sampler',
+    visibility: GPUShaderStage.FRAGMENT,
+    compare: 'less' as GPUCompareFunction,
+    magFilter: 'nearest' as GPUFilterMode,
+    minFilter: 'nearest' as GPUFilterMode,
+    layout: { 
+      type: 'comparison' as GPUSamplerBindingType 
+    } as GPUSamplerBindingLayout
+  },
+  linearSampler: {
+    type: 'sampler' as ResourceType,
+    label: 'Texture Linear Sampler',
+    visibility: GPUShaderStage.FRAGMENT,
+    magFilter: 'linear' as GPUFilterMode,
+    minFilter: 'linear' as GPUFilterMode,
+    layout: { 
+      type: 'filtering' as GPUSamplerBindingType 
+    } as GPUSamplerBindingLayout
+  }, 
+  nonFilterSampler: {
+    type: 'sampler' as ResourceType,
+    label: 'Texture Linear Sampler',
+    visibility: GPUShaderStage.FRAGMENT,
+    magFilter: 'nearest' as GPUFilterMode,
+    minFilter: 'nearest' as GPUFilterMode,
+    layout: { 
+      type: 'non-filtering' as GPUSamplerBindingType 
+    } as GPUSamplerBindingLayout
+  }, 
 
   // Environment
   skyboxMap: {
@@ -124,7 +146,7 @@ const ResourceFormat = {
     type: 'texture' as ResourceType,
     labal: 'Emu Texture',
     visibility: GPUShaderStage.FRAGMENT,
-    usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
+    usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.STORAGE_BINDING,
     size: [MultiBounceBRDF.EmuResolution, MultiBounceBRDF.EmuResolution],
     dimension: '2d' as GPUTextureDimension,
     format: 'r32float' as GPUTextureFormat,
@@ -137,7 +159,7 @@ const ResourceFormat = {
     type: 'texture' as ResourceType,
     labal: 'Eavg Texture',
     visibility: GPUShaderStage.FRAGMENT,
-    usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
+    usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.STORAGE_BINDING,
     size: [MultiBounceBRDF.EmuResolution],
     dimension: '1d' as GPUTextureDimension,
     format: 'r32float' as GPUTextureFormat,
@@ -204,16 +226,6 @@ const ResourceFormat = {
       type: 'uniform' as GPUBufferBindingType
     } as GPUBufferBindingLayout
   },
-  textureSampler: {
-    type: 'sampler' as ResourceType,
-    label: 'Texture Linear Sampler',
-    visibility: GPUShaderStage.FRAGMENT,
-    magFilter: 'nearest' as GPUFilterMode,
-    minFilter: 'nearest' as GPUFilterMode,
-    layout: { 
-      type: 'non-filtering' as GPUSamplerBindingType 
-    } as GPUSamplerBindingLayout
-  }, 
   baseMap: { // texture
     type: 'texture' as ResourceType,
     label: 'Base Albedo Map ',
@@ -336,28 +348,6 @@ const ResourceFormat = {
       sampleType: 'float' as GPUTextureSampleType,
       viewDimension: '2d-array' as GPUTextureViewDimension
     } as GPUTextureBindingLayout
-  },
-
-  // for pre compute
-  EmuBuffer: {
-    type: 'buffer' as ResourceType,
-    label: 'Emu buffer for compute shader',
-    visibility: GPUShaderStage.COMPUTE,
-    usage:  GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
-    size: MultiBounceBRDF.EmuResolution * MultiBounceBRDF.EmuResolution * 4,
-    layout: { 
-      type: 'storage' as GPUBufferBindingType
-    } as GPUBufferBindingLayout
-  },
-  EavgBuffer: {
-    type: 'buffer' as ResourceType,
-    label: 'Eavg buffer for compute shader',
-    visibility: GPUShaderStage.COMPUTE,
-    usage:  GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
-    size: MultiBounceBRDF.EmuResolution * 4,
-    layout: { 
-      type: 'storage' as GPUBufferBindingType
-    } as GPUBufferBindingLayout
   },
 
 };

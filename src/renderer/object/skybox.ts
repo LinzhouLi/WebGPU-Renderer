@@ -95,7 +95,7 @@ class Skybox extends RenderableObject {
 
     const vertexBufferLayout = vertexBufferFactory.createLayout(this.vertexBufferAttributes);
     const { layout, group } = bindGroupFactory.create(
-      ['camera', 'textureSampler', 'skyboxMap'],
+      ['camera', 'linearSampler', 'skyboxMap'],
       globalResource
     );
 
