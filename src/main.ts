@@ -60,7 +60,7 @@ class Main {
 
     // camera
     let camera = new THREE.PerspectiveCamera( 50, window.innerWidth / window.innerHeight, 0.1, 5000 );
-    camera.position.set( 3, 3, 3 );
+    camera.position.set( 0, 4, 0 );
     camera.lookAt( 0, 0, 0 );
     this.scene.add(camera)
     new OrbitControls(camera, this.canvas); // controls
@@ -102,7 +102,7 @@ class Main {
       // animation
       this.mixer = new THREE.AnimationMixer(mesh);
       mesh.rotation.set(0, -0.75 * Math.PI, 0)
-      this.scene.add( mesh );
+      // this.scene.add( mesh );
     }
 
     {
@@ -117,10 +117,10 @@ class Main {
     }
 
     {
-      const geometry = new THREE.PlaneGeometry( 30, 30 );
+      const geometry = new THREE.PlaneGeometry( 3, 3 );
       const material = new THREE.MeshStandardMaterial({color: 0xffffff});
       material.color = new THREE.Color(0.562, 0.565, 0.578);
-      material.roughness = 0.2;
+      material.roughness = 0.3;
       material.metalness = 0.0;
       const mesh = new THREE.Mesh( geometry, material );
       mesh.rotation.set(-Math.PI / 2, 0, 0);

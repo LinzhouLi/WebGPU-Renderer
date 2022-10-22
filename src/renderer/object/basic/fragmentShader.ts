@@ -33,13 +33,14 @@ ${Definitions.PBRMaterial}
 @group(0) @binding(2) var shadowMapSampler: sampler_comparison;
 @group(0) @binding(3) var textureSampler: sampler;
 @group(0) @binding(4) var shadowMap: texture_depth_2d;
+@group(0) @binding(5) var Emu: texture_2d<f32>;
 
-@group(0) @binding(6) var<uniform> material: PBRMaterial;
+@group(1) @binding(1) var<uniform> material: PBRMaterial;
 #if ${baseMap}
-@group(0) @binding(7) var baseMap: texture_2d<f32>;
+@group(1) @binding(2) var baseMap: texture_2d<f32>;
 #endif
 #if ${normalMap}
-@group(0) @binding(8) var normalMap: texture_2d<f32>;
+@group(1) @binding(3) var normalMap: texture_2d<f32>;
 #endif
 
 ${Constants}
@@ -119,7 +120,8 @@ fn main(
 #if ${baseMap} // blbedo
   localMaterial.albedo = textureSample(baseMap, textureSampler, fragUV).xyz * material.albedo;
 #else
-  localMaterial.albedo = material.albedo;
+  // localMaterial.albedo = material.albedo;
+  localMaterial.albedo = textureSample(Emu, textureSampler, fragUV).xyz;
 #endif
 
 #if ${specularMap}
@@ -144,13 +146,13 @@ fn main(
     localMaterial, light.color
   );
 
-  let ambient = 0.2 * localMaterial.albedo; // * ao
-  var color: vec3<f32> = 0.8 * shadingColor * visibility + ambient;
+  let ambient = 0.4 * localMaterial.albedo; // * ao
+  var color: vec3<f32> = 0.6 * shadingColor * visibility + ambient;
 
   // tone mapping
   color = ACESToneMapping(color);
 
-  return vec4<f32>(color, 1.0);
+  return vec4<f32>(localMaterial.albedo.x, localMaterial.albedo.x, localMaterial.albedo.x, 1.0);
 
 }
 `

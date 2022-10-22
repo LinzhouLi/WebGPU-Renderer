@@ -31,7 +31,8 @@ class GlobalObject {
     this.resourceAttributes = [
       'camera', this.lightType, 
       'shadowMapSampler', 'shadowMap',
-      'textureSampler', 'skyboxMap'
+      'textureSampler', 'skyboxMap',
+      'Emu', 'EmuBuffer', 'Eavg', 'EavgBuffer'
     ];
 
     const lightPosOrDir = this.lightType === 'pointLight' ?

@@ -1,5 +1,6 @@
 import { device } from '../renderer';
 import type { TypedArray } from '../base';
+import { MultiBounceBRDF } from '../precompute/multiBounceBRDF'
 
 type ResourceType = 'buffer' | 'sampler' | 'texture' | 'cube-texture' | 'texture-array';
 
@@ -105,17 +106,44 @@ const ResourceFormat = {
     } as GPUTextureBindingLayout
   },
 
-  // skybox
+  // Environment
   skyboxMap: {
     type: 'cube-texture' as ResourceType,
     label: 'Skybox Map',
     visibility: GPUShaderStage.FRAGMENT,
     usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT,
+    size: [],
     dimension: '2d' as GPUTextureDimension,
     format: 'rgba8unorm' as GPUTextureFormat,
     layout: { 
       sampleType: 'float' as GPUTextureSampleType,
       viewDimension: 'cube' as GPUTextureViewDimension
+    } as GPUTextureBindingLayout
+  },
+  Emu: {
+    type: 'texture' as ResourceType,
+    labal: 'Emu Texture',
+    visibility: GPUShaderStage.FRAGMENT,
+    usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
+    size: [MultiBounceBRDF.EmuResolution, MultiBounceBRDF.EmuResolution],
+    dimension: '2d' as GPUTextureDimension,
+    format: 'r32float' as GPUTextureFormat,
+    layout: {
+      sampleType: 'unfilterable-float' as GPUTextureSampleType,
+      viewDimension: '2d' as GPUTextureViewDimension
+    } as GPUTextureBindingLayout
+  },
+  Eavg: {
+    type: 'texture' as ResourceType,
+    labal: 'Eavg Texture',
+    visibility: GPUShaderStage.FRAGMENT,
+    usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
+    size: [MultiBounceBRDF.EmuResolution],
+    dimension: '1d' as GPUTextureDimension,
+    format: 'r32float' as GPUTextureFormat,
+    layout: {
+      sampleType: 'unfilterable-float' as GPUTextureSampleType,
+      viewDimension: '1d' as GPUTextureViewDimension
     } as GPUTextureBindingLayout
   },
 
@@ -180,10 +208,10 @@ const ResourceFormat = {
     type: 'sampler' as ResourceType,
     label: 'Texture Linear Sampler',
     visibility: GPUShaderStage.FRAGMENT,
-    magFilter: 'linear' as GPUFilterMode,
-    minFilter: 'linear' as GPUFilterMode,
+    magFilter: 'nearest' as GPUFilterMode,
+    minFilter: 'nearest' as GPUFilterMode,
     layout: { 
-      type: 'filtering' as GPUSamplerBindingType 
+      type: 'non-filtering' as GPUSamplerBindingType 
     } as GPUSamplerBindingLayout
   }, 
   baseMap: { // texture
@@ -310,6 +338,28 @@ const ResourceFormat = {
     } as GPUTextureBindingLayout
   },
 
+  // for pre compute
+  EmuBuffer: {
+    type: 'buffer' as ResourceType,
+    label: 'Emu buffer for compute shader',
+    visibility: GPUShaderStage.COMPUTE,
+    usage:  GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
+    size: MultiBounceBRDF.EmuResolution * MultiBounceBRDF.EmuResolution * 4,
+    layout: { 
+      type: 'storage' as GPUBufferBindingType
+    } as GPUBufferBindingLayout
+  },
+  EavgBuffer: {
+    type: 'buffer' as ResourceType,
+    label: 'Eavg buffer for compute shader',
+    visibility: GPUShaderStage.COMPUTE,
+    usage:  GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
+    size: MultiBounceBRDF.EmuResolution * 4,
+    layout: { 
+      type: 'storage' as GPUBufferBindingType
+    } as GPUBufferBindingLayout
+  },
+
 };
 
 
@@ -361,8 +411,8 @@ class ResourceFactory {
         }
 
         case 'texture': { // GPU texture
-          if ((ResourceFormat[attribute].usage & GPUTextureUsage.COPY_DST) && !data[attribute])
-            throw new Error(`${attribute} Needs Copy Data`);
+          // if ((ResourceFormat[attribute].usage & GPUTextureUsage.COPY_DST) && !data[attribute])
+          //   throw new Error(`${attribute} Needs Copy Data`);
 
           // create bitmap
           let bitmap: ImageBitmap = null;

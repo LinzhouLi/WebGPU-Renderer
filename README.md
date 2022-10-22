@@ -39,3 +39,7 @@ Raiden Shogun of Genshin Impact:
 Instance:
 
 ![instance](img/instance.png)
+
+kulla-conty precompute:
+
+![kulla_conty_percompute](img/kulla_conty_percompute.png)

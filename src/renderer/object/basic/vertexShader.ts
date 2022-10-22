@@ -23,7 +23,7 @@ ${Definitions.Transform}
 @group(0) @binding(1) var<uniform> light: DirectionalLight;
 #endif
 
-@group(0) @binding(5) var<uniform> transform : Transform;
+@group(1) @binding(0) var<uniform> transform : Transform;
 
 struct VertexOutput {
   @builtin(position) position: vec4<f32>,

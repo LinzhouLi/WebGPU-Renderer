@@ -107,15 +107,18 @@ class Mesh extends RenderableObject {
     const lightType = globalResource.pointLight ? 'pointLight' : 'directionalLight';
     
     const vertexLayout = vertexBufferFactory.createLayout(this.vertexBufferAttributes);
-    const { layout, group } = bindGroupFactory.create(
-      [ 'camera', lightType, 'shadowMapSampler', 'textureSampler', 'shadowMap', ...this.resourceAttributes ],
-      { ...globalResource, ...this.resource }
+    const gloablBind = bindGroupFactory.create(
+      [ 'camera', lightType, 'shadowMapSampler', 'textureSampler', 'shadowMap', 'Emu' ],
+      globalResource
+    );
+    const localBind = bindGroupFactory.create(
+      this.resourceAttributes, this.resource
     );
     
     this.renderPipeline = await device.createRenderPipelineAsync({
       label: 'Render Pipeline',
       layout: device.createPipelineLayout({ 
-        bindGroupLayouts: [layout]
+        bindGroupLayouts: [gloablBind.layout, localBind.layout]
       }),
       vertex: {
         module: device.createShaderModule({ code: 
@@ -159,7 +162,8 @@ class Mesh extends RenderableObject {
     }
 
     // set bind group
-    bundleEncoder.setBindGroup(0, group);
+    bundleEncoder.setBindGroup(0, gloablBind.group);
+    bundleEncoder.setBindGroup(1, localBind.group);
 
     // draw
     if (indexed) bundleEncoder.drawIndexed(this.vertexCount);

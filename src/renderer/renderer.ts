@@ -85,7 +85,7 @@ class Renderer {
 
   public draw() {
 
-    const commandEncoder = device.createCommandEncoder()
+    const commandEncoder = device.createCommandEncoder();
 
     // shadow pass
     const shadowPassEncoder = commandEncoder.beginRenderPass({

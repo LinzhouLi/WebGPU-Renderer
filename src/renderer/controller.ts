@@ -4,6 +4,7 @@ import { GlobalObject } from './object/global';
 import { RenderableObject } from './object/renderableObject';
 import { Mesh } from './object/basic/mesh';
 import { Skybox } from './object/skybox';
+import { MultiBounceBRDF } from './precompute/multiBounceBRDF';
 
 // console.info( 'THREE.WebGPURenderer: Modified Matrix4.makePerspective() and Matrix4.makeOrtographic() to work with WebGPU, see https://github.com/mrdoob/three.js/issues/20276.' );
 // @ts-ignore
@@ -76,6 +77,8 @@ class RenderController {
 
   public globalObject: GlobalObject;
   public objectList: RenderableObject[];
+  
+  public multiBounceBRDF: MultiBounceBRDF;
 
   public shadowBundle: GPURenderBundle;
   public renderBundle: GPURenderBundle;
@@ -131,6 +134,8 @@ class RenderController {
     if (this.light === null) throw new Error('No Light');
     this.globalObject = new GlobalObject(this.camera, this.light, this.scene);
 
+    this.multiBounceBRDF = new MultiBounceBRDF();
+
   }
 
   public async initResources() {
@@ -144,6 +149,20 @@ class RenderController {
       meshObject.initVertexBuffer();
       await meshObject.initGroupResource();
     }
+
+    // pre compute
+    await this.multiBounceBRDF.initComputePipeline(this.globalObject.resource);
+    await this.precompute();
+
+  }
+
+  public async precompute() {
+
+    device.queue.submit([
+      this.multiBounceBRDF.run(this.globalObject.resource)
+    ]);
+    await device.queue.onSubmittedWorkDone();
+
   }
 
   public async initRenderPass() {
