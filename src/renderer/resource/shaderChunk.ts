@@ -133,7 +133,7 @@ fn hemisphereSample(sample2D: vec2<f32>) -> vec3<f32> {
 
 const GGXImportance = /* wgsl */`
 fn GGXImportanceSample(sample2D: vec2<f32>, alpha: f32) -> vec3<f32> {
-  let alpha2 = clamp(alpha * alpha, 0.00002, 1.0);
+  let alpha2 = clamp(alpha * alpha, 0.00002, 1.0); // a strange bug
   let phi = sample2D.x * PI_twice;
   let cosTheta = sqrt((1.0 - sample2D.y) / (sample2D.y * (alpha2 - 1.0) + 1.0));
   let sinTheta = sqrt(1.0 - cosTheta * cosTheta);

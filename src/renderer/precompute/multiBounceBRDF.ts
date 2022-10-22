@@ -46,7 +46,7 @@ fn energyloss(roughness: f32, NoV: f32) -> f32 {
     //        = 4 * G * VoH * NoL / NoH
 
     let G = G2_Smith(alpha, NoL, NoV);
-    integrateEnergy = integrateEnergy + (G * saturate(VoH) * saturate(NoL)) / saturate(NoH);
+    integrateEnergy = integrateEnergy + (G * saturate(VoH) * saturate(NoL)) / saturate(NoH); // saturate!!!!
   }
 
   integrateEnergy = integrateEnergy * 4.0 / f32(SANPLE_COUNT);
