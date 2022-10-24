@@ -21,7 +21,7 @@ ${PBR.NDF}
 
 const SANPLE_COUNT: u32 = 1024;
 
-fn energyloss(roughness: f32, NoV: f32) -> f32 {
+fn integrateBRDF(roughness: f32, NoV: f32) -> f32 {
   // compute energyloss when F0 = 1, that is (1 - cosine-weighted BRDF integration)
 
   var integrateEnergy: f32 = 0.0;
@@ -50,7 +50,7 @@ fn energyloss(roughness: f32, NoV: f32) -> f32 {
 
   integrateEnergy = integrateEnergy * 4.0 / f32(SANPLE_COUNT);
 
-  return (1.0 - integrateEnergy);
+  return integrateEnergy;
 
 }
 
@@ -62,7 +62,7 @@ fn main(@builtin(global_invocation_id) global_index : vec3<u32>) {
   let roughness = (f32(global_index.x) + 0.5) / f32(resolution);  // x: roughness
   let NoV = (f32(global_index.y) + 0.5) / f32(resolution);        // y: cosine
   
-  let result = energyloss(roughness, NoV);
+  let result = saturate(integrateBRDF(roughness, NoV));
   textureStore(Emu, vec2<i32>(global_index.xy), vec4<f32>(result, 0.0, 0.0, 1.0));
   return;
 
@@ -84,9 +84,10 @@ fn main(@builtin(global_invocation_id) global_index : vec3<u32>) {
 
   var result: f32 = 0.0;
   for (var i: u32 = 0; i < resolution; i = i + 1) {
-    result = result + textureLoad(Emu, vec2<i32>(i32(global_index.x), i32(i)), 0).x;
+    let NoL = (f32(i) + 0.5) / f32(resolution);
+    result = result + NoL * textureLoad(Emu, vec2<i32>(i32(global_index.x), i32(i)), 0).x;
   }
-  result = result / f32(resolution);
+  result = 2 * result / f32(resolution);
   
   textureStore(Eavg, i32(global_index.x), vec4<f32>(result, 0.0, 0.0, 1.0));
   return;

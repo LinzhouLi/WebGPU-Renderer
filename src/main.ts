@@ -120,11 +120,93 @@ class Main {
       const geometry = new THREE.PlaneGeometry( 3, 3 );
       const material = new THREE.MeshStandardMaterial({color: 0xffffff});
       material.color = new THREE.Color(0.562, 0.565, 0.578);
-      material.roughness = 0.3;
+      material.roughness = 0.9;
       material.metalness = 0.0;
       const mesh = new THREE.Mesh( geometry, material );
       mesh.rotation.set(-Math.PI / 2, 0, 0);
       // mesh.position.set(1, 0, 1);
+      this.scene.add( mesh );
+    }
+
+    {
+      const geometry = new THREE.SphereGeometry( 0.2 );
+      const material = new THREE.MeshStandardMaterial({color: 0xffffff});
+      material.color = new THREE.Color(1,1,1);
+      material.roughness = 0.2;
+      material.metalness = 0.0;
+      const mesh = new THREE.Mesh( geometry, material );
+      mesh.position.set(0, 3.2, 0);
+      this.scene.add( mesh );
+    }
+    {
+      const geometry = new THREE.SphereGeometry( 0.2 );
+      const material = new THREE.MeshStandardMaterial({color: 0xffffff});
+      material.color = new THREE.Color(1,1,1);
+      material.roughness = 0.4;
+      material.metalness = 0.0;
+      const mesh = new THREE.Mesh( geometry, material );
+      mesh.position.set(0, 3.2, 0.5);
+      this.scene.add( mesh );
+    }
+    {
+      const geometry = new THREE.SphereGeometry( 0.2 );
+      const material = new THREE.MeshStandardMaterial({color: 0xffffff});
+      material.color = new THREE.Color(1,1,1);
+      material.roughness = 0.6;
+      material.metalness = 0.0;
+      const mesh = new THREE.Mesh( geometry, material );
+      mesh.position.set(0, 3.2, 1);
+      this.scene.add( mesh );
+    }
+    {
+      const geometry = new THREE.SphereGeometry( 0.2 );
+      const material = new THREE.MeshStandardMaterial({color: 0xffffff});
+      material.color = new THREE.Color(1,1,1);
+      material.roughness = 0.8;
+      material.metalness = 0.0;
+      const mesh = new THREE.Mesh( geometry, material );
+      mesh.position.set(0, 3.2, 1.5);
+      this.scene.add( mesh );
+    }
+
+    {
+      const geometry = new THREE.SphereGeometry( 0.2 );
+      const material = new THREE.MeshStandardMaterial({color: 0xffffff});
+      material.color = new THREE.Color(1,1,1);
+      material.roughness = 0.2;
+      material.metalness = 1.0;
+      const mesh = new THREE.Mesh( geometry, material );
+      mesh.position.set(0, 2.5, 0);
+      this.scene.add( mesh );
+    }
+    {
+      const geometry = new THREE.SphereGeometry( 0.2 );
+      const material = new THREE.MeshStandardMaterial({color: 0xffffff});
+      material.color = new THREE.Color(1,1,1);
+      material.roughness = 0.4;
+      material.metalness = 1.0;
+      const mesh = new THREE.Mesh( geometry, material );
+      mesh.position.set(0, 2.5, 0.5);
+      this.scene.add( mesh );
+    }
+    {
+      const geometry = new THREE.SphereGeometry( 0.2 );
+      const material = new THREE.MeshStandardMaterial({color: 0xffffff});
+      material.color = new THREE.Color(1,1,1);
+      material.roughness = 0.6;
+      material.metalness = 1.0;
+      const mesh = new THREE.Mesh( geometry, material );
+      mesh.position.set(0, 2.5, 1);
+      this.scene.add( mesh );
+    }
+    {
+      const geometry = new THREE.SphereGeometry( 0.2 );
+      const material = new THREE.MeshStandardMaterial({color: 0xffffff});
+      material.color = new THREE.Color(1,1,1);
+      material.roughness = 0.8;
+      material.metalness = 1.0;
+      const mesh = new THREE.Mesh( geometry, material );
+      mesh.position.set(0, 2.5, 1.5);
       this.scene.add( mesh );
     }
 

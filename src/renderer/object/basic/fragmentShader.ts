@@ -55,6 +55,7 @@ ${Shadow.PCF}
 ${PBR.NDF}
 ${PBR.Geometry}
 ${PBR.Fresnel}
+${PBR.MultiBounce}
 ${PBR.Shading}
 
 ${ACESToneMapping}
@@ -123,9 +124,7 @@ fn main(
 #if ${baseMap} // blbedo
   localMaterial.albedo = textureSample(baseMap, linearSampler, fragUV).xyz * material.albedo;
 #else
-  // localMaterial.albedo = material.albedo;
-  localMaterial.albedo = bilinearSampleTexture(Emu, vec2<u32>(64), fragUV).xyz;
-  localMaterial.albedo = linearSampleTexture(Eavg, 64, fragUV.x).xyz;
+  localMaterial.albedo = material.albedo;
 #endif
 
 #if ${specularMap}
@@ -137,9 +136,9 @@ fn main(
   // shadow
   let shadowUV = shadowPos.xy / shadowPos.w * vec2<f32>(0.5, -0.5) + 0.5;
   let shadowDepth = shadowPos.z / shadowPos.w;
-  // let visibility = 1.0;
+  let visibility = 1.0;
   // let visibility = hardShadow(shadowUV, shadowDepth, shadowMap, compareSampler);
-  let visibility = PCF(shadowUV, shadowDepth, 5.0, shadowMap, compareSampler);
+  // let visibility = PCF(shadowUV, shadowDepth, 5.0, shadowMap, compareSampler);
 
   // Blinn-Phong shading
   // let shadingColor = blinnPhong(fragPosition, normal, albedo);
@@ -150,13 +149,13 @@ fn main(
     localMaterial, light.color
   );
 
-  let ambient = 0.4 * localMaterial.albedo; // * ao
-  var color: vec3<f32> = 0.6 * shadingColor * visibility + ambient;
+  // let ambient = 0.1 * localMaterial.albedo; // * ao
+  var color: vec3<f32> = shadingColor * visibility;
 
   // tone mapping
   color = ACESToneMapping(color);
 
-  return vec4<f32>(localMaterial.albedo.x, localMaterial.albedo.x, localMaterial.albedo.x, 1.0);
+  return vec4<f32>(color, 1.0);
 
 }
 `

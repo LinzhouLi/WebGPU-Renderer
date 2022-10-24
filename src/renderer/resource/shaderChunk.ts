@@ -113,25 +113,6 @@ fn linearSampleTexture(texture: texture_1d<f32>, textureSize: u32, u: f32) -> ve
 
 const RadicalInverse = /* wgsl */`
 fn RadicalInverse(x: u32, base: u32) -> f32 {
-  // var bits_ = (bits << 16u) | (bits >> 16u);
-  // bits_ = ((bits_ & 0x55555555) << 1u) | ((bits_ & 0xAAAAAAAA) >> 1u);
-  // bits_ = ((bits_ & 0x33333333) << 2u) | ((bits_ & 0xCCCCCCCC) >> 2u);
-  // bits_ = ((bits_ & 0x0F0F0F0F) << 4u) | ((bits_ & 0xF0F0F0F0) >> 4u);
-  // bits_ = ((bits_ & 0x00FF00FF) << 8u) | ((bits_ & 0xFF00FF00) >> 8u);
-  // return f32(bits) * 2.3283064365386963e-10;
-
-  // var invBase: f32 = 1.0 / f32(base);
-  // var denom: f32 = 1.0;
-  // var result: f32 = 0.0;
-  // var n: u32 = x;
-  // for(var i: u32 = 0; i < 32u; i = i + 1){
-  //   if(n <= 0) { break; }
-  //   denom   = get_mod(f32(n), 2.0);
-  //   result += denom * invBase;
-  //   invBase = invBase / 2.0;
-  //   n       = u32(f32(n) / 2.0);
-  // }
-  // return result;
   var numPoints: f32 = 1.0;
   var inverse: u32;
   var i: u32 = x;
@@ -258,20 +239,23 @@ fn G2_Smith(alpha: f32, NoL: f32, NoV: f32) -> f32 { // an approximation of (the
   let NoL_ = abs(NoL);                               // combined with the denominator of specular BRDF)
   let NoV_ = abs(NoV);
   return 0.5 / (lerp(2 * NoL_ * NoV_, NoL_ + NoV_, alpha) + EPS);
+}
+`;
 
-  // let NoL_ = saturate(NoL);
-  // let NoV_ = saturate(NoV);
-  // let alpha2 = alpha * alpha;
-  // let GGXL = NoV_ * sqrt((-NoL_ * alpha2 + NoL_) * NoL_ + alpha2);
-  // let GGXV = NoL_ * sqrt((-NoV_ * alpha2 + NoV_) * NoV_ + alpha2);
-  // return 0.5 / (GGXV + GGXL + EPS);
-
-  // let NoL_ = saturate(NoL);
-  // let NoV_ = saturate(NoV);
-  // let k = (roughness + 1.0) * (roughness + 1.0) / 8.0;
-  // let ggx1 = NoV / (NoV * (1.0 - k) + k + EPS);
-  // let ggx2 = NoL / (NoL * (1.0 - k) + k + EPS);
-  // return ggx1 * ggx2;
+const MultiBounce = /* wgsl */`
+const EmuResolution = 64;
+fn multiBounce(F0: vec3<f32>, roughness: f32, NoL: f32, NoV: f32) -> vec3<f32> {
+  let Favg = (20.0 * F0 + 1.0) / 21.0;
+  let oneMinusFavg = vec3<f32>(1.0) - Favg;
+  let Eavg = linearSampleTexture(Eavg, EmuResolution, roughness).x;
+  let oneMinusEavg = vec3<f32>(1.0) - Eavg;
+  let EmuL = bilinearSampleTexture(Emu, vec2<u32>(EmuResolution), vec2<f32>(roughness, saturate(NoL))).x;
+  let EmuV = bilinearSampleTexture(Emu, vec2<u32>(EmuResolution), vec2<f32>(roughness, saturate(NoV))).x;
+  let oneMinusEmuL = vec3<f32>(1.0) - EmuL;
+  let oneMinusEmuV = vec3<f32>(1.0) - EmuV;
+  let fms = oneMinusEmuL * oneMinusEmuV / (PI * oneMinusEavg);
+  let fadd = Favg * Eavg / (vec3<f32>(1.0) - Favg * oneMinusEavg);
+  return fms * fadd;
 }
 `;
 
@@ -295,15 +279,15 @@ fn PBRShading(
   let D = NDF_GGX(alpha, NoH);
   let F = Fresnel_Schlick(F0, VoH);
   let specular = G * D * F;
+  let diffuse = material.albedo * (1.0 - F) * (1.0 - material.metalness) / PI;
+  let fms = multiBounce(F0, material.roughness, NoL, NoV);
 
-  let diffuse = material.albedo / PI * (1.0 - F) * (1.0 - material.metalness);
-
-  return PI * (specular + diffuse) * radiance * saturate(NoL);
+  return PI * (specular + diffuse + fms) * radiance * saturate(NoL);
 
 }
 `;
 
-const PBR = { NDF, Geometry, Fresnel, Shading };
+const PBR = { NDF, Geometry, Fresnel, MultiBounce, Shading };
 
 
 // tone mapping
