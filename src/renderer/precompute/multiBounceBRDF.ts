@@ -2,14 +2,17 @@
 // see https://blog.selfshadow.com/publications/s2017-shading-course/imageworks/s2017_pbs_imageworks_slides_v2.pdf
 
 import { device } from '../renderer';
-import { Constants, Sampling, PBR, ToolFunctions } from '../resource/shaderChunk';
+import { Constants, Sampling, PBR, ToolFunction } from '../resource/shaderChunk';
 
 const EmuComputeShader = /* wgsl */`
 override resolution: u32 = 32;
 @group(0) @binding(0) var Emu: texture_storage_2d<r32float, write>;
 
 ${Constants}
-${ToolFunctions}
+
+${ToolFunction.Lerp}
+${ToolFunction.Pow5}
+${ToolFunction.SampleTexture}
 
 ${Sampling.RadicalInverse}
 ${Sampling.Hammersley}
@@ -19,7 +22,7 @@ ${PBR.Fresnel}
 ${PBR.Geometry}
 ${PBR.NDF}
 
-const SANPLE_COUNT: u32 = 1024;
+const SANPLE_COUNT: u32 = 256;
 
 fn integrateBRDF(roughness: f32, NoV: f32) -> f32 {
   // compute energyloss when F0 = 1, that is (1 - cosine-weighted BRDF integration)
@@ -27,15 +30,15 @@ fn integrateBRDF(roughness: f32, NoV: f32) -> f32 {
   var integrateEnergy: f32 = 0.0;
   let alpha = roughness * roughness;
   let N = vec3<f32>(0.0, 0.0, 1.0);
-  let V = vec3<f32>(sqrt(1.0 - NoV * NoV), 0.0, NoV);
+  let V = vec3<f32>(sqrt(1.0 - NoV * NoV), NoV, 0.0);
 
   for (var i: u32 = 0; i < SANPLE_COUNT; i = i + 1) {
     let sample2D = Hammersley(i, SANPLE_COUNT);
     let H = GGXImportanceSample(sample2D, alpha);
     let L = reflect(-V, H);
 
-    let NoL = L.z;
-    let NoH = H.z;
+    let NoL = L.y;
+    let NoH = H.y;
     let VoH = dot(V, H);
 
     // BRDF = D * F * G = D * G   (F0 = 1.0 => F = 1.0)
@@ -181,9 +184,7 @@ class MultiBounceBRDF {
 
   }
 
-  public run(
-    globalResource: { [x: string]: GPUBuffer | GPUTexture | GPUSampler }
-  ) {
+  public run() {
 
     const commandEncoder = device.createCommandEncoder();
     const passEncoder = commandEncoder.beginComputePass();

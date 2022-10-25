@@ -56,14 +56,16 @@ const PI_twice = 6.283185307179586;
 
 // tool functions
 
-const ToolFunctions = /* wgsl */`
+const Random = /* wgsl */`
 fn rand(uv: vec2<f32>) -> f32 {  // 0 - 1
 	const a: f32 = 12.9898; const b: f32 = 78.233; const c: f32 = 43758.5453;
 	let dt: f32 = dot( uv, vec2<f32>(a, b) ); 
   let sn: f32 = dt - PI * floor(dt / PI); // mod
 	return fract(sin(sn) * c);
 }
+`;
 
+const Lerp = /* wgsl */`
 fn lerp(a: f32, b: f32, s: f32) -> f32 {
   return fma(a, 1.0 - s, b * s);
 }
@@ -75,14 +77,56 @@ fn lerp_vec3(a: vec3<f32>, b: vec3<f32>, s: f32) -> vec3<f32> {
 fn lerp_vec4(a: vec4<f32>, b: vec4<f32>, s: f32) -> vec4<f32> {
   return fma(a, vec4<f32>(1.0 - s), b * s);
 }
+`;
 
+const Pow5 = /* wgsl */`
 fn pow5(x: f32) -> f32 { // an approximation of pow5, see https://blog.selfshadow.com/publications/s2013-shading-course/karis/s2013_pbs_epic_notes_v2.pdf
   let y = 1.0 - x;
   return pow(2, (-5.55473 * y - 6.98316) * y);
 }
+`;
 
+const Mod = /* wgsl */`
 fn get_mod(x: f32, y:f32) -> f32 {
   return (x - y * floor(x / y));
+}
+`;
+
+const SampleTexture = /* wgsl */`
+fn bilinearSampleCubeTexture(texture: texture_2d_array<f32>, textureWidth: u32, coord: vec3<f32>) -> vec4<f32> {
+  // see Real-Time Rendering (4th) 6.2.4
+  var face: i32;
+  var ifNegative: i32 = 0;
+  var uv: vec2<f32>;
+  let absCoord = abs(coord);
+  if (absCoord.x > absCoord.y) {
+    if (absCoord.z > absCoord.x) { face = 2; uv = vec2<f32>(coord.x, -coord.y); }
+    else { face = 0; uv = -coord.zy; }
+  } else {
+    if (absCoord.z > absCoord.y) { face = 2; uv = vec2<f32>(coord.x, -coord.y); }
+    else { face = 1; uv = coord.xz; } 
+  }
+  if (coord[face] < 0) { 
+    ifNegative = 1;
+    if (face == 0) { uv.x = -uv.x; }
+    if (face == 1) { uv.y = -uv.y; }
+    if (face == 2) { uv.x = -uv.x; }
+  }
+  uv = (uv / absCoord[face] + 1.0) * 0.5;
+  face = face * 2 + ifNegative;
+  
+  uv = clamp(
+    uv * vec2<f32>(f32(textureWidth)),
+    vec2<f32>(0.0), vec2<f32>(f32(textureWidth - 1))
+  );
+  var x: vec4<f32>; var y: vec4<f32>;
+  x = textureLoad(texture, vec2<i32>(uv) + vec2<i32>(0, 0), face, 0);
+  y = textureLoad(texture, vec2<i32>(uv) + vec2<i32>(0, 1), face, 0);
+  let p = lerp_vec4(x, y, fract(uv.y));
+  x = textureLoad(texture, vec2<i32>(uv) + vec2<i32>(1, 0), face, 0);
+  y = textureLoad(texture, vec2<i32>(uv) + vec2<i32>(1, 1), face, 0);
+  let q = lerp_vec4(x, y, fract(uv.y));
+  return lerp_vec4(p, q, fract(uv.x));
 }
 
 fn bilinearSampleTexture(texture: texture_2d<f32>, textureSize: vec2<u32>, uv: vec2<f32>) -> vec4<f32> {
@@ -108,6 +152,7 @@ fn linearSampleTexture(texture: texture_1d<f32>, textureSize: u32, u: f32) -> ve
 }
 `;
 
+const ToolFunction = { Random, Lerp, Pow5, Mod, SampleTexture };
 
 // sampling
 
@@ -130,12 +175,35 @@ fn Hammersley(i: u32, N: u32) -> vec2<f32> { // return the i-th uniform 2D sampl
 }
 `;
 
+const SampleDisk = /* wgsl */`
+fn sampleDisk(sample2D: vec2<f32>) -> vec2<f32> {
+  let p = 2.0 * sample2D - 1.0;
+  var r: f32; var theta: f32;
+  if (abs(p.x) > abs(p.y)) {
+    r = p.x;
+    theta = 0.25 * PI * p.y / p.x;
+  } else {
+    r = p.y;
+    theta = PI * (0.5 - 0.25 * p.x / p.y);
+  }
+  return r * vec2<f32>(cos(theta), sin(theta));
+}
+`;
+
+const HemisphereCosine = /* wgsl */`
+fn hemisphereSampleCosine(sample2D: vec2<f32>) -> vec3<f32> {
+  let r = sampleDisk(sample2D);
+  let h = sqrt(max(0.0, 1.0 - r.x * r.x - r.y * r.y));
+  return vec3<f32>(r.x, h, r.y);
+}
+`;
+
 const HemisphereUniform = /* wgsl */`
-fn hemisphereSample(sample2D: vec2<f32>) -> vec3<f32> {
+fn hemisphereSampleUniform(sample2D: vec2<f32>) -> vec3<f32> {
   let phi = sample2D.x * PI_twice;
   let cosTheta = 1.0 - sample2D.y;
   let sinTheta = sqrt(1.0 - cosTheta * cosTheta);
-  return vec3<f32>(cos(phi) * sinTheta, sin(phi) * sinTheta, cosTheta);
+  return vec3<f32>(cos(phi) * sinTheta, cosTheta, sin(phi) * sinTheta);
 }
 `;
 
@@ -145,11 +213,14 @@ fn GGXImportanceSample(sample2D: vec2<f32>, alpha: f32) -> vec3<f32> {
   let phi = sample2D.x * PI_twice;
   let cosTheta = sqrt((1.0 - sample2D.y) / (sample2D.y * (alpha2 - 1.0) + 1.0));
   let sinTheta = sqrt(1.0 - cosTheta * cosTheta);
-  return normalize(vec3<f32>(cos(phi) * sinTheta, sin(phi) * sinTheta, cosTheta));
+  return normalize(vec3<f32>(cos(phi) * sinTheta, cosTheta, sin(phi) * sinTheta));
 }
 `;
 
-const Sampling = { RadicalInverse, Hammersley, HemisphereUniform, GGXImportance };
+const Sampling = { 
+  RadicalInverse, Hammersley, SampleDisk,
+  HemisphereCosine, HemisphereUniform, GGXImportance 
+};
 
 
 // shadow
@@ -323,6 +394,6 @@ fn ACESToneMapping(color: vec3<f32>) -> vec3<f32> {
 
 export { 
   Definitions, Constants, 
-  ToolFunctions, Sampling,
+  ToolFunction, Sampling,
   Shadow, PBR, ACESToneMapping 
 };

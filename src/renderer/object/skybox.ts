@@ -5,7 +5,6 @@ import {
 } from '../base';
 import { RenderableObject } from './renderableObject';
 
-
 // skybox shader code
 const skyboxVertexShader = /* wgsl */`
 struct Camera {
@@ -34,15 +33,15 @@ fn main( @location(0) position : vec3<f32>, ) -> VertexOutput {
 
 
 const skyboxFragmentShader = /* wgsl */`
-@group(0) @binding(1) var texSampler: sampler;
-@group(0) @binding(2) var skyboxMap: texture_cube<f32>;
+@group(0) @binding(1) var linearSampler: sampler;
+@group(0) @binding(2) var envMap: texture_cube<f32>;
 
 @fragment
 fn main(
   @builtin(position) position : vec4<f32>,
   @location(0) fragPosition : vec3<f32>,
 ) -> @location(0) vec4<f32> {
-  return textureSample(skyboxMap, texSampler, fragPosition);
+  return textureSample(envMap, linearSampler, fragPosition);
 }
 `;
 
@@ -95,7 +94,7 @@ class Skybox extends RenderableObject {
 
     const vertexBufferLayout = vertexBufferFactory.createLayout(this.vertexBufferAttributes);
     const { layout, group } = bindGroupFactory.create(
-      ['camera', 'linearSampler', 'skyboxMap'],
+      ['camera', 'linearSampler', 'envMap'],
       globalResource
     );
 

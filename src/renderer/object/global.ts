@@ -30,7 +30,7 @@ class GlobalObject {
 
     this.resourceAttributes = [
       'camera', this.lightType, 
-      'shadowMap', 'skyboxMap',
+      'shadowMap', 'envMap', 'diffuseEnvMap',
       'compareSampler', 'linearSampler', 'nonFilterSampler',
       'Emu', 'Eavg',
     ];
@@ -52,9 +52,9 @@ class GlobalObject {
         ...this.light.color.toArray(), 0,
         ...this.light.shadow.camera.projectionMatrix.multiply(this.light.shadow.camera.matrixWorldInverse).toArray()
       ]),
-      skyboxMap: (this.scene.background as THREE.CubeTexture).source.data
+      envMap: (this.scene.background as THREE.CubeTexture).source.data
     }
-
+    
     this.resource = await resourceFactory.createResource(this.resourceAttributes, this.resourceCPUData);
 
   }

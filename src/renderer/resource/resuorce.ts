@@ -1,6 +1,7 @@
 import { device } from '../renderer';
 import type { TypedArray } from '../base';
-import { MultiBounceBRDF } from '../precompute/multiBounceBRDF'
+import { MultiBounceBRDF } from '../precompute/multiBounceBRDF';
+import { IBL } from '../precompute/IBL';
 
 type ResourceType = 'buffer' | 'sampler' | 'texture' | 'cube-texture' | 'texture-array';
 
@@ -110,7 +111,7 @@ const ResourceFormat = {
   linearSampler: {
     type: 'sampler' as ResourceType,
     label: 'Texture Linear Sampler',
-    visibility: GPUShaderStage.FRAGMENT,
+    visibility: GPUShaderStage.FRAGMENT | GPUShaderStage.COMPUTE,
     magFilter: 'linear' as GPUFilterMode,
     minFilter: 'linear' as GPUFilterMode,
     layout: { 
@@ -129,12 +130,25 @@ const ResourceFormat = {
   }, 
 
   // Environment
-  skyboxMap: {
+  envMap: {
+    type: 'cube-texture' as ResourceType,
+    label: 'Skybox Map',
+    visibility: GPUShaderStage.FRAGMENT | GPUShaderStage.COMPUTE,
+    usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT,
+    size: [],
+    dimension: '2d' as GPUTextureDimension,
+    format: 'rgba8unorm' as GPUTextureFormat,
+    layout: { 
+      sampleType: 'float' as GPUTextureSampleType,
+      viewDimension: 'cube' as GPUTextureViewDimension
+    } as GPUTextureBindingLayout
+  },
+  diffuseEnvMap: {
     type: 'cube-texture' as ResourceType,
     label: 'Skybox Map',
     visibility: GPUShaderStage.FRAGMENT,
-    usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT,
-    size: [],
+    usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.STORAGE_BINDING,
+    size: [IBL.DiffuseEnvMapResulotion, IBL.DiffuseEnvMapResulotion],
     dimension: '2d' as GPUTextureDimension,
     format: 'rgba8unorm' as GPUTextureFormat,
     layout: { 
@@ -455,7 +469,7 @@ class ResourceFactory {
           }
 
           // create
-          const textureSize = bitmaps[0] ? [bitmaps[0].width, bitmaps[0].height] : ResourceFormat[attribute].size;
+          const textureSize = bitmaps.length === 6 ? [bitmaps[0].width, bitmaps[0].height] : ResourceFormat[attribute].size;
           let texture = device.createTexture({
             label: ResourceFormat[attribute].label,
             size: [...textureSize, 6],
@@ -463,15 +477,18 @@ class ResourceFactory {
             format: ResourceFormat[attribute].format || 'rgba8unorm',
             usage: ResourceFormat[attribute].usage
           });
-          for (let i = 0; i < 6; i++) {
-            device.queue.copyExternalImageToTexture(
-              { source: bitmaps[i] },
-              { 
-                texture: texture,      // Defines the origin of the copy - the minimum corner of the texture sub-region to copy to/from.
-                origin: [0, 0, i]      // Together with `copySize`, defines the full copy sub-region.
-              },
-              [ ...textureSize, 1]
-            )
+
+          if (bitmaps.length === 6) {
+            for (let i = 0; i < 6; i++) {
+              device.queue.copyExternalImageToTexture(
+                { source: bitmaps[i] },
+                { 
+                  texture: texture,      // Defines the origin of the copy - the minimum corner of the texture sub-region to copy to/from.
+                  origin: [0, 0, i]      // Together with `copySize`, defines the full copy sub-region.
+                },
+                [ ...textureSize, 1]
+              )
+            }
           }
           result[attribute] = texture;
           break;

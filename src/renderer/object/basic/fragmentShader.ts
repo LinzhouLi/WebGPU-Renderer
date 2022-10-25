@@ -1,6 +1,6 @@
 import { wgsl } from '../../../3rd-party/wgsl-preprocessor';
 import { 
-  Definitions, Constants, ToolFunctions, Shadow, PBR, ACESToneMapping
+  Definitions, Constants, ToolFunction, Shadow, PBR, ACESToneMapping
 } from '../../resource/shaderChunk';
 
 export function createFragmentShader(attributes: string[], type: string = 'phong') {
@@ -47,7 +47,11 @@ ${Definitions.PBRMaterial}
 #endif
 
 ${Constants}
-${ToolFunctions}
+
+${ToolFunction.Random}
+${ToolFunction.Pow5}
+${ToolFunction.Lerp}
+${ToolFunction.SampleTexture}
 
 ${Shadow.hardShadow}
 ${Shadow.PCF}
@@ -98,11 +102,11 @@ fn main(
 
   // normal
 #if ${normalMap}
-  let tbn: mat3x3<f32> = mat3x3<f32>(tangent, biTangent, fragNormal);
+  let TBN: mat3x3<f32> = mat3x3<f32>(tangent, biTangent, fragNormal);
   let normal_del: vec3<f32> = normalize(
-    textureSample(normalMap, linearSampler, fragUV).xyz - vec3<f32>(0.5, 0.5, 0.5)
+    textureSample(normalMap, linearSampler, fragUV).xyz - vec3<f32>(0.5)
   );
-  let normal = normalize(tbn * normal_del.xyz);
+  let normal = normalize(TBN * normal_del.xyz);
 #else
   let normal = fragNormal;
 #endif
