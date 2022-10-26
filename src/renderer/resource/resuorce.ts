@@ -137,6 +137,7 @@ const ResourceFormat = {
     usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT,
     size: [],
     dimension: '2d' as GPUTextureDimension,
+    mipLevelCount: IBL.EnvMapMipLevelCount,
     format: 'rgba8unorm' as GPUTextureFormat,
     layout: { 
       sampleType: 'float' as GPUTextureSampleType,
@@ -432,6 +433,7 @@ class ResourceFactory {
           let texture = device.createTexture({
             label: ResourceFormat[attribute].label,
             size: textureSize,
+            mipLevelCount: ResourceFormat[attribute].mipLevelCount || 1,
             dimension: ResourceFormat[attribute].dimension || '2d',
             format: ResourceFormat[attribute].format || 'rgba8unorm',
             usage: ResourceFormat[attribute].usage
@@ -473,6 +475,7 @@ class ResourceFactory {
           let texture = device.createTexture({
             label: ResourceFormat[attribute].label,
             size: [...textureSize, 6],
+            mipLevelCount: ResourceFormat[attribute].mipLevelCount || 1,
             dimension: ResourceFormat[attribute].dimension || '2d',
             format: ResourceFormat[attribute].format || 'rgba8unorm',
             usage: ResourceFormat[attribute].usage
@@ -517,6 +520,7 @@ class ResourceFactory {
           let texture = device.createTexture({
             label: ResourceFormat[attribute].label,
             size: [...textureSize, bitmaps.length],
+            mipLevelCount: ResourceFormat[attribute].mipLevelCount || 1,
             dimension: ResourceFormat[attribute].dimension || '2d',
             format: ResourceFormat[attribute].format || 'rgba8unorm',
             usage: ResourceFormat[attribute].usage

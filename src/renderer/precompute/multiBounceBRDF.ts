@@ -5,7 +5,6 @@ import { device } from '../renderer';
 import { Constants, Sampling, PBR, ToolFunction } from '../resource/shaderChunk';
 
 const EmuComputeShader = /* wgsl */`
-override resolution: u32 = 32;
 @group(0) @binding(0) var Emu: texture_storage_2d<r32float, write>;
 
 ${Constants}
@@ -29,7 +28,7 @@ fn integrateBRDF(roughness: f32, NoV: f32) -> f32 {
 
   var integrateEnergy: f32 = 0.0;
   let alpha = roughness * roughness;
-  let N = vec3<f32>(0.0, 0.0, 1.0);
+  let N = vec3<f32>(0.0, 1.0, 0.0);
   let V = vec3<f32>(sqrt(1.0 - NoV * NoV), NoV, 0.0);
 
   for (var i: u32 = 0; i < SANPLE_COUNT; i = i + 1) {
@@ -60,6 +59,7 @@ fn integrateBRDF(roughness: f32, NoV: f32) -> f32 {
 @compute @workgroup_size(16, 16)
 fn main(@builtin(global_invocation_id) global_index : vec3<u32>) {
 
+  let resolution = u32(textureDimensions(Emu).x);
   if(global_index.x >= resolution || global_index.y >= resolution) { return; }
 
   let roughness = (f32(global_index.x) + 0.5) / f32(resolution);  // x: roughness
@@ -76,13 +76,13 @@ fn main(@builtin(global_invocation_id) global_index : vec3<u32>) {
 `;
 
 const EavgComputeShader = /* wgsl */`
-override resolution: u32 = 32;
 @group(0) @binding(0) var Emu: texture_2d<f32>;
 @group(0) @binding(1) var Eavg: texture_storage_1d<r32float, write>;
 
 @compute @workgroup_size(16)
 fn main(@builtin(global_invocation_id) global_index : vec3<u32>) {
 
+  let resolution = u32(textureDimensions(Emu).x);
   if(global_index.x >= resolution) { return; }
 
   var result: f32 = 0.0;
@@ -163,10 +163,7 @@ class MultiBounceBRDF {
       layout: device.createPipelineLayout({ bindGroupLayouts: [this.EmuBindGroup.layout] }),
       compute: {
         module: device.createShaderModule({code: EmuComputeShader}),
-        entryPoint: 'main',
-        constants: {
-          resolution: MultiBounceBRDF.EmuResolution
-        }
+        entryPoint: 'main'
       }
     });
     
@@ -175,10 +172,7 @@ class MultiBounceBRDF {
       layout: device.createPipelineLayout({ bindGroupLayouts: [this.EavgBindGroup.layout] }),
       compute: {
         module: device.createShaderModule({code: EavgComputeShader}),
-        entryPoint: 'main',
-        constants: {
-          resolution: MultiBounceBRDF.EmuResolution
-        }
+        entryPoint: 'main'
       }
     });
 
