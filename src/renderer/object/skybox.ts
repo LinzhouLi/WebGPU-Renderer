@@ -41,7 +41,7 @@ fn main(
   @builtin(position) position : vec4<f32>,
   @location(0) fragPosition : vec3<f32>,
 ) -> @location(0) vec4<f32> {
-  return textureSampleLevel(envMap, linearSampler, fragPosition, 0);
+  return textureSampleLevel(envMap, linearSampler, fragPosition, 1);
 }
 `;
 

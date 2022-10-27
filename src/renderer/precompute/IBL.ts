@@ -41,7 +41,8 @@ fn pixelIndex2Direction(index: vec3<u32>, width: u32) -> vec3<f32> {
   let uv = (vec2<f32>(index.xy) + 0.5 - halfWidth) / halfWidth;
   let dir = PixelIndex2DirTransforms[index.z] * vec3<f32>(uv, 1.0);
   return normalize(dir);
-}`
+}
+`;
 
 const DiffuseEnvShader = /* wgsl */`
 @group(0) @binding(0) var diffuseEnvMap: texture_storage_2d_array<rgba8unorm, write>;
@@ -115,6 +116,22 @@ ${Sampling.GGXImportance}
 
 ${PixelIndex2Direction}
 
+fn mipMapStore(
+  texture: texture_storage_2d_array<rgba8unorm, write>,
+  uv: vec2<u32>, face: u32, mip: u32, val: vec4<f32>
+) {
+
+  let size = textureDimensions(texture);
+  var uv_ = vec2<i32>(uv);
+  if (mip > 1) { uv_.y = uv_.y + size.x; }
+  if (mip > 2) { 
+    uv_.x = uv_.x + i32(f32(size.x) * (1.0 - pow(0.5, f32(mip - 2))));
+  }
+
+  textureStore( texture, uv_, i32(face), val );
+
+}
+
 const SANPLE_COUNT: u32 = 256;
 
 fn integrateLight(N: vec3<f32>, roughness: f32) -> vec4<f32> {
@@ -147,18 +164,20 @@ fn integrateLight(N: vec3<f32>, roughness: f32) -> vec4<f32> {
 @compute @workgroup_size(16, 16, 1)
 fn main(@builtin(global_invocation_id) global_index : vec3<u32>) {
 
-  let mip = global_index.z / 6 + 1;
-  let resolution = u32(textureDimensions(envMap, 0).x) / u32(pow(2.0, f32(mip)));
-  if(global_index.x >= resolution || global_index.y >= resolution) { return; }
+  let mip = floor(f32(global_index.z) / 6.0) + 1.0;
+  let mipCount = f32(textureNumLevels(envMap) - 1);
+  let resolution = u32(textureDimensions(envMap, u32(mip)).x);
+  if(
+    global_index.x >= resolution || 
+    global_index.y >= resolution || 
+    global_index.z >= u32(mipCount) * 6
+  ) { return; }
 
-  let coord3D = pixelIndex2Direction(global_index, resolution);
-  let roughness = f32(mip) / f32(textureNumLevels(envMap) - 1);
-  textureStore(
-    specularEnvMap, 
-    vec2<i32>(global_index.xy),
-    i32(global_index.z),
-    integrateLight(coord3D, roughness)
-  );
+  let face = global_index.z % 6;
+  let coord3D = pixelIndex2Direction(vec3<u32>(global_index.xy, face), resolution);
+  let roughness = mip / mipCount;
+  let val = integrateLight(coord3D, roughness);
+  mipMapStore(specularEnvMap, global_index.xy, face, u32(mip), val);
 
 }
 `;
@@ -178,6 +197,7 @@ class IBL {
   private LutBindGroup: { layout: GPUBindGroupLayout, group: GPUBindGroup };
 
   private specularTempTexture: GPUTexture;
+  private EnvMap: GPUTexture;
 
   constructor() { }
 
@@ -229,7 +249,7 @@ class IBL {
     
     this.specularTempTexture = device.createTexture({
       label: 'Specular Temp Texture for IBL precompute',
-      size: [EnvMapResolution / 2, EnvMapResolution / 2, 6 * IBL.EnvMapMipLevelCount],
+      size: [EnvMapResolution * 0.5, EnvMapResolution * 0.75, 6],
       dimension: '2d', format: 'rgba8unorm',
       usage: GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.COPY_SRC
     });// @ts-ignore
@@ -277,6 +297,7 @@ class IBL {
     globalResource: { [x: string]: GPUBuffer | GPUTexture | GPUSampler }
   ) { 
 
+    this.EnvMap = globalResource.envMap as GPUTexture;
     await this.initDiffuseEnvComputePipeline(globalResource);
     await this.initSpecularEnvComputePipeline(globalResource);
 
@@ -286,6 +307,7 @@ class IBL {
 
     const commandEncoder = device.createCommandEncoder();
     const passEncoder = commandEncoder.beginComputePass();
+
     passEncoder.setPipeline(this.DiffuseEnvComputePipeline);
     passEncoder.setBindGroup(0, this.DiffuseEnvBindGroup.group);
     passEncoder.dispatchWorkgroups(
@@ -299,12 +321,41 @@ class IBL {
     passEncoder.dispatchWorkgroups(
       Math.ceil(EnvMapResolution / 2 / 16), 
       Math.ceil(EnvMapResolution / 2 / 16),
-      6
+      6 * (IBL.EnvMapMipLevelCount - 1)
     );
 
     passEncoder.end();
 
+    let mipWidth = EnvMapResolution / 2;
+    for (let mip = 1; mip < IBL.EnvMapMipLevelCount; mip++) {
+      let origin = [0, 0];
+      if (mip > 1) {
+        origin = [
+          EnvMapResolution / 2 * (1 - Math.pow(0.5, mip - 2)),
+          EnvMapResolution / 2
+        ];
+      }
+      commandEncoder.copyTextureToTexture(
+        { // source
+          texture: this.specularTempTexture,
+          origin: [ ...origin, 0 ]
+        }, { // destination
+          texture: this.EnvMap,
+          origin: [ 0, 0, 0 ],
+          mipLevel: mip
+        },
+        [ mipWidth, mipWidth, 6 ] // copySize
+      );
+      mipWidth /= 2;
+    }
+
     return commandEncoder.finish();
+
+  }
+
+  public finish() {
+
+    this.specularTempTexture.destroy();
 
   }
 

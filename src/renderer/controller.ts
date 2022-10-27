@@ -167,6 +167,7 @@ class RenderController {
       this.iBL.run()
     ]);
     await device.queue.onSubmittedWorkDone();
+    this.iBL.finish();
     
   }
 

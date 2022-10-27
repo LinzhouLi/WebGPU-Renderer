@@ -37,7 +37,7 @@ class Renderer {
     
     // device
     device = await adapter.requestDevice(); // "shader-f16" feature is not supported on my laptop
-    
+    console.log(device)
     // context
     const context = this.canvas.getContext('webgpu');
     if (!context) throw new Error('Can Not Get GPUCanvasContext');
