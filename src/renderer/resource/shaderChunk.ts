@@ -93,8 +93,9 @@ fn get_mod(x: f32, y:f32) -> f32 {
 `;
 
 const SampleTexture = /* wgsl */`
-fn bilinearSampleCubeTexture(texture: texture_2d_array<f32>, textureWidth: u32, coord: vec3<f32>) -> vec4<f32> {
+fn bilinearSampleCubeTexture(texture: texture_2d_array<f32>, coord: vec3<f32>) -> vec4<f32> {
   // see Real-Time Rendering (4th) 6.2.4
+  let textureWidth = textureDimensions(texture).x;
   var face: i32;
   var ifNegative: i32 = 0;
   var uv: vec2<f32>;
@@ -129,7 +130,8 @@ fn bilinearSampleCubeTexture(texture: texture_2d_array<f32>, textureWidth: u32, 
   return lerp_vec4(p, q, fract(uv.x));
 }
 
-fn bilinearSampleTexture(texture: texture_2d<f32>, textureSize: vec2<u32>, uv: vec2<f32>) -> vec4<f32> {
+fn bilinearSampleTexture(texture: texture_2d<f32>, uv: vec2<f32>) -> vec4<f32> {
+  let textureSize = textureDimensions(texture);
   let coord = clamp(
     uv * vec2<f32>(textureSize),
     vec2<f32>(0.0), vec2<f32>(textureSize - 1)
@@ -144,7 +146,8 @@ fn bilinearSampleTexture(texture: texture_2d<f32>, textureSize: vec2<u32>, uv: v
   return lerp_vec4(p, q, fract(coord.x));
 }
 
-fn linearSampleTexture(texture: texture_1d<f32>, textureSize: u32, u: f32) -> vec4<f32> {
+fn linearSampleTexture(texture: texture_1d<f32>, u: f32) -> vec4<f32> {
+  let textureSize = textureDimensions(texture);
   let coord = clamp(u * f32(textureSize), 0.0, f32(textureSize - 1));
   let x = textureLoad(texture, i32(coord) + 0, 0);
   let y = textureLoad(texture, i32(coord) + 1, 0);
@@ -314,14 +317,13 @@ fn G2_Smith(alpha: f32, NoL: f32, NoV: f32) -> f32 { // an approximation of (the
 `;
 
 const MultiBounce = /* wgsl */`
-const EmuResolution = 64;
 fn multiBounce(F0: vec3<f32>, roughness: f32, NoL: f32, NoV: f32) -> vec3<f32> {
   let Favg = (20.0 * F0 + 1.0) / 21.0;
   let oneMinusFavg = vec3<f32>(1.0) - Favg;
-  let Eavg = linearSampleTexture(Eavg, EmuResolution, roughness).x;
+  let Eavg = linearSampleTexture(Eavg, roughness).x;
   let oneMinusEavg = vec3<f32>(1.0) - Eavg;
-  let EmuL = bilinearSampleTexture(Emu, vec2<u32>(EmuResolution), vec2<f32>(roughness, saturate(NoL))).x;
-  let EmuV = bilinearSampleTexture(Emu, vec2<u32>(EmuResolution), vec2<f32>(roughness, saturate(NoV))).x;
+  let EmuL = bilinearSampleTexture(Emu, vec2<f32>(roughness, saturate(NoL))).x;
+  let EmuV = bilinearSampleTexture(Emu, vec2<f32>(roughness, saturate(NoV))).x;
   let oneMinusEmuL = vec3<f32>(1.0) - EmuL;
   let oneMinusEmuV = vec3<f32>(1.0) - EmuV;
   let fms = oneMinusEmuL * oneMinusEmuV / (PI * oneMinusEavg);

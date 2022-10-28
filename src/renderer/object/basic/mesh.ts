@@ -111,7 +111,7 @@ class Mesh extends RenderableObject {
       [ 
         'camera', lightType, 'shadowMap',
         'compareSampler', 'linearSampler',
-        'Emu', 'Eavg',
+        'Emu', 'Eavg', 'Lut'
       ],
       globalResource
     );

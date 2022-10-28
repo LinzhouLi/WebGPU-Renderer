@@ -32,7 +32,7 @@ class GlobalObject {
       'camera', this.lightType, 
       'shadowMap', 'envMap', 'diffuseEnvMap',
       'compareSampler', 'linearSampler', 'nonFilterSampler',
-      'Emu', 'Eavg',
+      'Emu', 'Eavg', 'Lut',
     ];
 
     const lightPosOrDir = this.lightType === 'pointLight' ?

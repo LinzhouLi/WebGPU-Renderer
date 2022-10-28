@@ -43,3 +43,7 @@ Instance:
 kulla-conty precompute:
 
 ![kulla_conty_percompute](img/kulla_conty_percompute.png)
+
+LUT Texture:
+
+![lut](img/lut.png)

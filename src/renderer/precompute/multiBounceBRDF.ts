@@ -17,9 +17,7 @@ ${Sampling.RadicalInverse}
 ${Sampling.Hammersley}
 ${Sampling.GGXImportance}
 
-${PBR.Fresnel}
 ${PBR.Geometry}
-${PBR.NDF}
 
 const SANPLE_COUNT: u32 = 256;
 
@@ -36,18 +34,20 @@ fn integrateBRDF(roughness: f32, NoV: f32) -> f32 {
     let H = GGXImportanceSample(sample2D, alpha);
     let L = reflect(-V, H);
 
-    let NoL = L.y;
-    let NoH = H.y;
-    let VoH = dot(V, H);
+    if (L.y > 0) {
+      let NoL = L.y;
+      let NoH = H.y;
+      let VoH = saturate(dot(V, H));
 
-    // BRDF = D * F * G = D * G   (F0 = 1.0 => F = 1.0)
-    // pdf = D * NoH / (4 * VoH)
-    // result = BRDF / pdf
-    //        = D * G * NoL / (D * NoH / (4 * VoH))
-    //        = 4 * G * VoH * NoL / NoH
+      // BRDF = D * F * G = D * G   (F0 = 1.0 => F = 1.0)
+      // pdf = D * NoH / (4 * VoH)
+      // result = BRDF / pdf
+      //        = D * G * NoL / (D * NoH / (4 * VoH))
+      //        = 4 * G * VoH * NoL / NoH
 
-    let G = G2_Smith(alpha, NoL, NoV);
-    integrateEnergy = integrateEnergy + (G * saturate(VoH) * saturate(NoL)) / saturate(NoH); // saturate!!!!
+      let G = G2_Smith(alpha, NoL, NoV);
+      integrateEnergy = integrateEnergy + (G * VoH * NoL) / saturate(NoH); // saturate!!!!
+    }
   }
 
   integrateEnergy = integrateEnergy * 4.0 / f32(SANPLE_COUNT);
@@ -67,7 +67,6 @@ fn main(@builtin(global_invocation_id) global_index : vec3<u32>) {
   
   let result = saturate(integrateBRDF(roughness, NoV));
   textureStore(Emu, vec2<i32>(global_index.xy), vec4<f32>(result, 0.0, 0.0, 1.0));
-  return;
 
   // let sample2D = Hammersley(global_index.x * 16 + global_index.y, 256);
   // Emu[u32(64.0*sample2D.x) * 64 + u32(64.0*sample2D.y)] = 1;

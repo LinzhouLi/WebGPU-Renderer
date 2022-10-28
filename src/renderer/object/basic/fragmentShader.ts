@@ -37,6 +37,7 @@ ${Definitions.PBRMaterial}
 
 @group(0) @binding(5) var Emu: texture_2d<f32>;
 @group(0) @binding(6) var Eavg: texture_1d<f32>;
+@group(0) @binding(7) var Lut: texture_2d<f32>;
 
 @group(1) @binding(1) var<uniform> material: PBRMaterial;
 #if ${baseMap}

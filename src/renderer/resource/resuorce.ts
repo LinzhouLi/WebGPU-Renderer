@@ -183,6 +183,19 @@ const ResourceFormat = {
       viewDimension: '1d' as GPUTextureViewDimension
     } as GPUTextureBindingLayout
   },
+  Lut: {
+    type: 'texture' as ResourceType,
+    labal: 'Lut Texture',
+    visibility: GPUShaderStage.FRAGMENT,
+    usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.STORAGE_BINDING,
+    size: [IBL.LutResulotion, IBL.LutResulotion],
+    dimension: '2d' as GPUTextureDimension,
+    format: 'rg32float' as GPUTextureFormat,
+    layout: {
+      sampleType: 'unfilterable-float' as GPUTextureSampleType,
+      viewDimension: '2d' as GPUTextureViewDimension
+    } as GPUTextureBindingLayout
+  },
 
   // transform
   transform: {
