@@ -30,14 +30,17 @@ ${Definitions.PBRMaterial}
 #else
 @group(0) @binding(1) var<uniform> light: DirectionalLight;
 #endif
+
 @group(0) @binding(2) var shadowMap: texture_depth_2d;
+@group(0) @binding(3) var envMap: texture_cube<f32>;
+@group(0) @binding(4) var diffuseEnvMap: texture_cube<f32>;
 
-@group(0) @binding(3) var compareSampler: sampler_comparison;
-@group(0) @binding(4) var linearSampler: sampler;
+@group(0) @binding(5) var compareSampler: sampler_comparison;
+@group(0) @binding(6) var linearSampler: sampler;
 
-@group(0) @binding(5) var Emu: texture_2d<f32>;
-@group(0) @binding(6) var Eavg: texture_1d<f32>;
-@group(0) @binding(7) var Lut: texture_2d<f32>;
+@group(0) @binding(7) var Emu: texture_2d<f32>;
+@group(0) @binding(8) var Eavg: texture_1d<f32>;
+@group(0) @binding(9) var Lut: texture_2d<f32>;
 
 @group(1) @binding(1) var<uniform> material: PBRMaterial;
 #if ${baseMap}
@@ -62,6 +65,7 @@ ${PBR.Geometry}
 ${PBR.Fresnel}
 ${PBR.MultiBounce}
 ${PBR.Shading}
+${PBR.EnvironmentShading}
 
 ${ACESToneMapping}
 
@@ -141,21 +145,23 @@ fn main(
   // shadow
   let shadowUV = shadowPos.xy / shadowPos.w * vec2<f32>(0.5, -0.5) + 0.5;
   let shadowDepth = shadowPos.z / shadowPos.w;
-  let visibility = 1.0;
+  // let visibility = 1.0;
   // let visibility = hardShadow(shadowUV, shadowDepth, shadowMap, compareSampler);
-  // let visibility = PCF(shadowUV, shadowDepth, 5.0, shadowMap, compareSampler);
+  let visibility = PCF(shadowUV, shadowDepth, 5.0, shadowMap, compareSampler);
 
   // Blinn-Phong shading
   // let shadingColor = blinnPhong(fragPosition, normal, albedo);
 
   // PBR shading
-  let shadingColor = PBRShading(
+  let directShading = PBRShading(
     normal, normalize(camera.position - fragPosition), normalize(light.direction),
     localMaterial, light.color
   );
+  let envShading = PBREnvShading(
+    normal, normalize(camera.position - fragPosition), localMaterial
+  );
 
-  // let ambient = 0.1 * localMaterial.albedo; // * ao
-  var color: vec3<f32> = shadingColor * visibility;
+  var color: vec3<f32> = 0.6 * (directShading * visibility + envShading);
 
   // tone mapping
   color = ACESToneMapping(color);

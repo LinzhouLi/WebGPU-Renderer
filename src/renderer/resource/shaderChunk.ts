@@ -360,7 +360,33 @@ fn PBRShading(
 }
 `;
 
-const PBR = { NDF, Geometry, Fresnel, MultiBounce, Shading };
+const EnvironmentShading = /* wgsl */`
+fn PBREnvShading(
+  N: vec3<f32>, V: vec3<f32>, 
+  material: PBRMaterial
+) -> vec3<f32> {
+
+  let NoV = saturate(dot(N, V));
+  let F0 = lerp_vec3(vec3<f32>(0.04), material.albedo, material.metalness);
+  let F = Fresnel_Schlick(F0, NoV);
+
+  let irradiance = textureSample(diffuseEnvMap, linearSampler, N).xyz;
+  let diffuse = material.albedo * irradiance * (1.0 - F) * (1.0 - material.metalness);
+
+  let L = reflect(-V, N);
+  let mipCount = f32(textureNumLevels(envMap));
+  let prefilterEnv = textureSampleLevel(envMap, linearSampler, L, material.roughness * mipCount).xyz;
+  let brdf = bilinearSampleTexture(Lut, vec2<f32>(material.roughness, NoV)).xy;
+  let specular = prefilterEnv * (F0 * brdf.x + brdf.y);
+
+  let fms = multiBounce(F0, material.roughness, NoV, NoV);
+
+  return (diffuse + specular + fms);
+
+}
+`;
+
+const PBR = { NDF, Geometry, Fresnel, MultiBounce, Shading, EnvironmentShading };
 
 
 // tone mapping

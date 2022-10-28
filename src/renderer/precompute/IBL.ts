@@ -88,7 +88,7 @@ fn integrateLight(N: vec3<f32>) -> vec4<f32> {
 @compute @workgroup_size(16, 16, 1)
 fn main(@builtin(global_invocation_id) global_index : vec3<u32>) {
 
-  let resolution = u32(textureDimensions(envMap, 0).x);
+  let resolution = u32(textureDimensions(diffuseEnvMap).x);
   if(global_index.x >= resolution || global_index.y >= resolution || global_index.z >= 6) { return; }
   
   let coord3D = pixelIndex2Direction(global_index, resolution);
