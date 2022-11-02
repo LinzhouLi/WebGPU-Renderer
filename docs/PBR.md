@@ -1,6 +1,8 @@
 # Physically Based Shading
 
-## 渲染原理
+
+
+## 物理原理
 
 ### 光学现象
 
@@ -36,7 +38,11 @@
 
 本文不考虑光线透射和全局次表面散射，总的来说，我们可以把着色拆分成衡量微表面散射的高光项（Specular term）和衡量局部次表面散射的漫反射项（Diffuse Term）。
 
-## 渲染方程与BRDF
+
+
+## 基于物理的渲染理论
+
+### 渲染方程与BRDF
 
 Kajiya给出完整的渲染方程（Rendering Equation）如下：
 $$
@@ -86,7 +92,7 @@ R(\textbf l) = \int_{\textbf v \in \Omega} f(\textbf l, \textbf v) (\textbf n \c
 $$
 它的含义是在方向 $$\textbf l$$ 入射辐照度为1时，BRDF在各个方向出射辐照度的积分。由于能量守恒，$$R(\textbf l)$$ 函数的值域为 $$[0,1]$$，$$R(\textbf l)=0$$ 表示入射光能量被全部吸收。
 
-## 菲涅尔效应
+### 菲涅尔效应
 
 菲涅尔效应（Fresnel Effect）指的是，光线照射某种材质表面时被反射与折射的比例，随着入射角变化而变化。入射角越大，反射越明显。
 
@@ -96,13 +102,13 @@ $$
 
 菲涅尔函数 $$F(\theta_i)$$ 定义为入射光被反射的比例，当材质一定时，它仅于入射角有关。当 $$\theta_i=0^{\circ}$$ 时，方程反应了垂直入射光被反射的比例，它是材质的一个属性，记为 $$F_0$$；当 $$\theta_i=90^{\circ}$$ 时， 光线入射任何物质都被完全反射，即 $$F_{90}=1$$。
 
-$$F(\theta_i)$$ 对不同波长的入射光的值是不同的，所以 $$F(\theta_i)$$ 是一个RGB的矢量函数。对于非金属，$$F(\theta_i)$$ 对波长的变化非常不明显，且 $$F_0$$ 值较小，通常在0.06以下；而对于金属，$$F(\theta_i)$$ 对波长的变化非常明显，且 $$F_0$$ 值往往在0.5以上。具体实现上，非金属 $$F_0$$ 保存为一个标量，金属 $$F_0$$ 保存为一个RGB值。
+同一材质，对不同波长的入射光反射比例也是不同的，所以 $$F(\theta_i)$$ 是一个RGB的矢量函数。对于非金属，$$F(\theta_i)$$ 对波长的变化非常不明显，且 $$F_0$$ 值较小，通常在0.06以下；而对于金属，$$F(\theta_i)$$ 对波长的变化非常明显，且 $$F_0$$ 值往往在0.5以上。具体实现上，非金属 $$F_0$$ 通常保存为一个标量，金属 $$F_0$$ 则保存为一个RGB值。
 
 <img src="img/6.png" width="60%">
 
 <div style="font-family:仿宋;font-size:15px; text-align:center;">图6  三种材质在不同入射角对不同波长的菲涅尔值。<br>从左至右分别为玻璃、铜、铝。第一行为不同波长菲涅尔值，第二行为转换为RGB的菲涅尔值。</div>
 
-对于菲涅尔函数，Schlick给出了近似函数：
+对于菲涅尔函数，Schlick给出了近似：
 $$
 F(\textbf n, \textbf l) \approx F_0 + (F_{90} - F_0) (1 - (\textbf n \cdot \textbf l)^+)^5
 $$
@@ -113,18 +119,135 @@ F(\textbf n, \textbf l) \approx F_cF_{90} + (1-F_c)F_0
 $$
 这样可以将Schlick近似理解为用 $$F_c$$ 插值 $$F_0$$ 与 $$F_{90}$$，其中 $$F_{90}=1$$。
 
-## 微表面理论
+### 微表面理论
 
-### 法向分布函数
+物体表面的微小起伏使得表面粗糙度不同，不过这种起伏远小于一个像素，所以物体模型不可能如此精细。而这些起伏会影响光在物体表面的反射，所以可以使用BRDF模型从统计学上模拟这些微小平面整体对光照着色的影响。微表面理论起源于光学界，由Blinn于1977年以及Cook和Torrance在1981年引入计算机图形学^[4][5]^。
 
-### 几何遮蔽
+#### 法向分布函数
 
-## 
+在微观上，记每个微平面的法向为 $$\textbf m$$，且它们都遵循一个微观的BRDF $$f_{\mu}(\textbf l, \textbf v, \textbf m)$$ 来反射光线，一般将可以这个BRDF直接简化为理想的菲涅尔镜面反射。将所有微观BRDF加起来，就得到了宏观上整个表面的BRDF。
+
+<img src="img/7.png" width="65%">
+
+<div style="font-family:仿宋;font-size:15px; text-align:center;">图7  将微表面投影至宏观表面或其他平面。</div>
+
+微表面模型BRDF的一个重要属性就是微平面的法向统计分布，我们使用法向分布函数（Normal Distribution Function, NDF）来衡量，记作 $$D(\textbf m)$$ ^[6]^。它的具体含义是：法向为 $$\textbf m$$ 的微表面面积。所以对 $$D(\textbf m)$$ 积分将得到微表面总面积，而对 $$D(\textbf m)$$ 在宏观表面上的投影积分将得到宏观表面片元的面积，即 $$D(\textbf m)$$ 需要满足：
+$$
+\int_{\textbf m \in \Theta} D(\textbf m)(\textbf n \cdot \textbf m) \,\mathrm d \textbf m = 1
+$$
+其中，$$\Theta$$ 表示对整个球面积分，$$\textbf n$$ 为宏观表面法向。简便起见，规定宏观表面片元面积为1。
+
+同时，将微表面和宏观表面都投影至与观察方向垂直的表面上，得到的面积是相等的，即：
+$$
+\int_{\textbf m \in \Theta} D(\textbf m)(\textbf v \cdot \textbf m) \,\mathrm d \textbf m = \textbf v \cdot \textbf n
+$$
+
+#### 几何函数
+
+##### 遮蔽函数
+
+公式x中，$$(\textbf v \cdot \textbf m)$$ 有可能小于零，如图7所示，正是 $$(\textbf v \cdot \textbf m)$$ 项正负抵消，才得到了正确的结果。而如果我们只考虑从观察方向 $$\textbf v$$ 可见的微平面，就需要引入一个遮蔽函数（Masking Function），记为 $$G_1(\textbf m, \textbf v)$$。它描述了法向为 $$\textbf m$$ 的微表面中，从 $$\textbf v$$ 方向可见的比例。所以 $$G_1(\textbf m, \textbf v)D(\textbf m)$$ 就描述了可见的微表面法向分布。同时，公式x可以写为：
+$$
+\int_{\textbf m \in \Theta} G_1(\textbf m, \textbf v)D(\textbf m) (\textbf v \cdot \textbf m)^+ \,\mathrm d \textbf m = \textbf v \cdot \textbf n
+$$
+<img src="img/8.png" width="35%">
+
+<div style="font-family:仿宋;font-size:15px; text-align:center;">图8  几何遮蔽函数作用示意图。</div>
+
+NDF描述了不同朝向的微表面的统计分布，而遮蔽函数 $$G_1$$ 则隐含了这些不同朝向的微表面在空间上如何排列的信息。Smith遮蔽函数^[7]^适用于任意NDF。Heitz证明了它具有良好的性质^[6]^，一方面，它满足公式x，另一方面，它与微表面具体的法向 $$\textbf m$$ 是无关的。公式如下：
+$$
+G_1(\textbf m, \textbf v) = \frac {\chi^+(\textbf m \cdot \textbf v)} {1 + \Lambda (\textbf v)}
+$$
+其中 $$\chi^+(x)$$ 为正特征函数。$$\Lambda$$ 函数需要从特定的NDF中推导，Walter等人^[8]^与Heitz^[6]^给出了方法。在微表面朝向和遮蔽情况无关（Normal-Masking Independence）的假设下，Smith G~1~是精确的，而当这点假设不成立时（比如布料纤维等材质），它的精确性就会下降。
+
+##### 遮蔽阴影函数
+
+<img src="img/9.png" width="65%">
+
+<div style="font-family:仿宋;font-size:15px; text-align:center;">图9  阴影，遮蔽，多次弹射</div>
+
+如图九所示，$$G_1$$ 函数仅考虑了从观察方向产生的微表面遮蔽情况，而关系在照射微表面时，会产生类似的现象，称之为阴影（Shadowing）。同时考虑两种遮挡的函数称之为遮蔽阴影函数（Masking-Shadowing Function），记作 $$G_2(\textbf l, \textbf v, \textbf m)$$。最简单的 $$G_2$$ 函数假设两种遮挡是无关的，称为分离形G~2~（Separable Form）公式如下：
+$$
+G_2(\textbf l, \textbf v, \textbf m) = G_1(\textbf m, \textbf v) G_1(\textbf m, \textbf l)
+$$
+这种假设与现实不符，会造成渲染结果过暗。加入高度相关的因素，从Smith G~1~中可以推导出Smith高度相关的遮挡阴影函数（Smith Height-Correlated Masking-Shadowing Function）：
+$$
+G_2(\textbf l, \textbf v, \textbf m) =
+\frac {\chi^+(\textbf m \cdot \textbf v) \chi^+(\textbf m \cdot \textbf l)}
+{1 + \Lambda (\textbf v) + \Lambda (\textbf l)}
+$$
+Heitz还给出了一个结合方向相关（Direction-Correlated）与高度相关的Smith G~2~函数：
+$$
+G_2(\textbf l, \textbf v, \textbf m) =
+\frac {\chi^+(\textbf m \cdot \textbf v) \chi^+(\textbf m \cdot \textbf l)}
+{1 + \max(\Lambda (\textbf v), \Lambda (\textbf l)) + \lambda(\textbf v, \textbf l) \min(\Lambda (\textbf v), \Lambda (\textbf l))}
+\\
+\lambda(\phi) = 1 - e^{-7.3\phi^2}
+$$
+由于公式x复杂度与Smith G~1~相似，所以广泛应用于实践中^[9][10][11]^。
+
+#### 多次弹射
+
+从图九中可以看到，除了简单的遮挡，光线还会在微表面之间进行多次弹射后出射。而我们所讨论的几何遮蔽函数都忽略了这一点，所以最终的渲染结果会偏暗，并且材质粗糙度越高，多次弹射现象越明显，能量损失也越严重。Kulla与Conty提出了多次弹射的BRDF项^[10]^，达到了能量补偿的效果。
+
+<img src="img/10.png" width="65%">
+
+<div style="font-family:仿宋;font-size:15px; text-align:center;">图10  多次弹射能量损失</div>
+
+<img src="img/11.png" width="65%">
+
+<div style="font-family:仿宋;font-size:15px; text-align:center;">图11  Kulla-Conty多次弹射能量补偿</div>
+
+### 高光项BRDF
+
+
+
+#### 法向分布函数
+
+#### 多次弹射能量补偿
+
+### 漫反射项BRDF
+
+
+
+## 基于物理的环境光照
+
+### 漫反射项光照预计算
+
+### 高光项光照预计算
+
+### BRDF预计算
+
+
+
+## 采样
+
+### 低差异序列
+
+### 半球面上均匀采样
+
+### 半球面上余弦重要性采样
+
+### GGX重要性采样
+
+
 
 ## 参考文献
 
-*Real-Time Rendering*
+1. *Real-Time Rendering*
 
-*James T. Kajiya. 1986. The rendering equation. SIGGRAPH Comput. Graph. 20, 4 (Aug. 1986), 143–150. https://doi.org/10.1145/15886.15902*
+2. *James T. Kajiya. 1986. The rendering equation. SIGGRAPH Comput. Graph. 20, 4 (Aug. 1986), 143–150. https://doi.org/10.1145/15886.15902*
 
-*Schlick, C. (1994), An Inexpensive BRDF Model for Physically-based Rendering. Computer Graphics Forum, 13: 233-246. https://doi.org/10.1111/1467-8659.1330233*
+3. *Schlick, C. (1994), An Inexpensive BRDF Model for Physically-based Rendering. Computer Graphics Forum, 13: 233-246. https://doi.org/10.1111/1467-8659.1330233*
+
+4. *James F. Blinn. 1977. Models of light reflection for computer synthesized pictures. SIGGRAPH Comput. Graph. 11, 2 (Summer 1977), 192–198. https://doi.org/10.1145/965141.563893*
+
+5. *Robert L. Cook and Kenneth E. Torrance. 1981. A reflectance model for computer graphics. SIGGRAPH Comput. Graph. 15, 3 (August 1981), 307–316. https://doi.org/10.1145/965161.806819*
+6. *Heitz, Eric. 2014. Understanding the Masking-Shadowing Function in Microfacet-Based BRDFs. Journal of Computer Graphics Techniques (JCGT). 3.* 
+7. *B. Smith, Geometrical shadowing of a random rough surface, in IEEE Transactions on Antennas and Propagation, vol. 15, no. 5, pp. 668-671, September 1967, doi: 10.1109/TAP.1967.1138991.*
+8. *Bruce Walter, Stephen R. Marschner, Hongsong Li, and Kenneth E. Torrance. 2007. Microfacet models for refraction through rough surfaces. In Proceedings of the 18th Eurographics conference on Rendering Techniques (EGSR'07). Eurographics Association, Goslar, DEU, 195–206.*
+9. *Karis, Brian. 2013. Real Shading in Unreal Engine 4. Physically based shading in theory and practice. In ACM SIGGRAPH 2013 Courses (SIGGRAPH '13). Association for Computing Machinery, New York, NY, USA, Article 22, 1–8. https://doi.org/10.1145/2504435.2504457*
+10. *Kulla, Christopher, and Alejandro Conty. 2017. Revisiting Physically Based Shading at Imageworks. Physically based shading in theory and practice. In ACM SIGGRAPH 2017 Courses (SIGGRAPH '17). Association for Computing Machinery, New York, NY, USA, Article 7, 1–8. https://doi.org/10.1145/3084873.3084893*
+11. *Lagarde, S´ebastian, and Charles de Rousiers. 2014. Moving Frostbite to Physically Based Rendering. Physically based shading in theory and practice. In ACM SIGGRAPH 2014 Courses (SIGGRAPH '14). Association for Computing Machinery, New York, NY, USA, Article 23, 1–8. https://doi.org/10.1145/2614028.2615431*
+12. 
+
