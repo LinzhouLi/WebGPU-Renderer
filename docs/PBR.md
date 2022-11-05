@@ -170,6 +170,7 @@ $$
 
 Walter等人^[8]^提出了GGX法向分布模型，这是应用最广泛的NDF，它的公式如下：
 $$
+\tag{1}
 D(\textbf m) = \frac {\chi^+(\textbf m \cdot \textbf n) \alpha_g^2} {\pi (1 + (\textbf m \cdot \textbf n)^2 (\alpha_g^2 - 1))^2}
 $$
 其中 $$\chi^+(x)$$ 为正特征函数， $$\alpha_g$$ 是粗糙度系数，在迪士尼原则（Disney principled）的着色模型^[13]^中，用户可见的粗糙度参数为 $$r$$，而 $$\alpha_g= r^2$$。
@@ -188,12 +189,14 @@ $$
 
 NDF描述了不同朝向的微表面的统计分布，而遮蔽函数 $$G_1$$ 则隐含了这些不同朝向的微表面在空间上如何排列的信息。Smith遮蔽函数^[7]^适用于任意NDF。Heitz证明了它具有良好的性质^[6]^，一方面，它满足公式x，另一方面，它与微表面具体的法向 $$\textbf m$$ 是无关的。公式如下：
 $$
+\tag{1}
 G_1(\textbf m, \textbf v) = \frac {\chi^+(\textbf m \cdot \textbf v)} {1 + \Lambda (\textbf v)}
 $$
 其中 $$\chi^+(x)$$ 为正特征函数。$$\Lambda$$ 函数需要从特定的NDF中推导，Walter等人^[8]^与Heitz^[6]^给出了方法。在微表面朝向和遮蔽情况无关（Normal-Masking Independence）的假设下，Smith G~1~是精确的，而当这点假设不成立时（比如布料纤维等材质），它的精确性就会下降。
 
 GGX法线分布具有形状不变性（Shape-Invariant），可以推导出解析形式的 $$\Lambda$$ 函数。
 $$
+\tag{1}
 \Lambda(\textbf s) = \frac {-1 + \sqrt {1 +  \frac {1} {a^2}}} {2} \qquad a= \frac {\textbf n \cdot \textbf s} {\alpha_g \sqrt{1 - (\textbf n \cdot \textbf s)^2}}
 $$
 
@@ -209,6 +212,7 @@ G_2(\textbf l, \textbf v, \textbf m) = G_1(\textbf m, \textbf v) G_1(\textbf m, 
 $$
 这种假设与现实不符，会造成渲染结果过暗。加入高度相关的因素，从Smith G~1~中可以推导出Smith高度相关的遮挡阴影函数（Smith Height-Correlated Masking-Shadowing Function）：
 $$
+\tag{1}
 G_2(\textbf l, \textbf v, \textbf m) =
 \frac {\chi^+(\textbf m \cdot \textbf v) \chi^+(\textbf m \cdot \textbf l)}
 {1 + \Lambda (\textbf v) + \Lambda (\textbf l)}
@@ -231,6 +235,7 @@ $$
 
 从微表面理论中，可以推导得到**高光项BRDF**（Specular BRDF Term），称为Cook-Torrance BRDF^[5]^，公式如下：
 $$
+\tag{1}
 f_{spec} = \frac {F(\textbf h, \textbf l)G_2(\textbf l, \textbf v, \textbf h)D(\textbf h)} 
 {4 (\textbf n \cdot \textbf l)^+ (\textbf n \cdot \textbf v)^+}
 $$
@@ -270,7 +275,7 @@ f_{spec} = \frac {\mathrm d L_o(\textbf v)} {\mathrm d E_i(\textbf l)} =
 $$
 最后，显然我们需要求得微分立体角 $$\mathrm d \textbf h$$ 与 $$\mathrm d \textbf v$$ 之间的比值。以 $$\textbf l$$ 方向为z轴建立坐标系，令 $$\textbf h$$ 与z轴的夹角为 $$\theta$$，方位角为 $$\phi$$，那么显然 $$\textbf v$$ 与z轴的夹角为 $$2\theta$$，方位角也为 $$\phi$$。所以：
 $$
-\frac {\mathrm d \textbf h} {\mathrm d \textbf v} = \frac {\sin \theta \,\mathrm d \theta \,\mathrm d \phi} {\sin 2\theta \,\mathrm d 2\theta \,\mathrm d \phi} = \frac {1} {4 \cos \theta} = \frac {1} {(\textbf h \cdot \textbf l)^+}
+\frac {\mathrm d \textbf h} {\mathrm d \textbf v} = \frac {\sin \theta \,\mathrm d \theta \,\mathrm d \phi} {\sin 2\theta \,\mathrm d 2\theta \,\mathrm d \phi} = \frac {1} {4 \cos \theta} = \frac {1} {4(\textbf h \cdot \textbf l)^+}
 $$
 将上式代入公式x中，即可得到Cook-Torrance BRDF。
 
@@ -286,7 +291,121 @@ $$
 
 <div style="font-family:仿宋;font-size:15px; text-align:center;">图11  Kulla-Conty多次弹射能量补偿</div>
 
-### 参数化与具体实现
+### 具体实现
+
+#### 参数化
+
+根据上文阐述，在渲染着色过程中，我们需要两类信息，一类是空间信息，比如法向，观察方向，光照方向等；另一类是材质信息，比如菲涅尔项中的 $$F_0$$，漫反射项中的反照率，微表面模型中的表面粗糙度等。空间信息一般可以从顶点着色器中插值得到，而材质信息则一般需要从附加的贴图资源中提供。所以需要将材质信息参数化为若干易于理解的字段，用于美术资产制作。
+
+由于非金属材质的 $$F_0$$ 一般较小，可以取一个特定的值（如0.04），并且金属材质没有漫反射，不需要反照率参数，所以可以将非金属的反照率和金属的 $$F_0$$ 用一张贴图存储（基础颜色），同时再用一张贴图保存材质是否为金属（金属度）。
+
+在高光项的微表面BRDF中，我们只需要一张粗糙度贴图，如前文所述，公式x中使用的粗糙度与暴露给用户的粗糙度之间存在映射关系 $$\alpha = r^2$$。
+
+<div style="font-family:仿宋;font-size:15px; text-align:center;">表1  PBR材质参数化</div>
+
+| 参数名    | 数据类型    | 取值范围     | 说明     |
+| --------- | ----------- | ------------ | -------- |
+| baseColor | vec3\<f32\> | [0 ... 1]^3^ | 基础颜色 |
+| metalness | \<f32\>     | {0, 1}       | 金属度   |
+| roughness | \<f32\>     | [0 ... 1]    | 粗糙度   |
+
+参数映射代码：
+
+```wgsl
+// src/renderer/resource/shaderChunk.js
+
+let alpha = material.roughness * material.roughness;
+let F0 = lerp_vec3(vec3<f32>(0.04), material.baseColor, material.metalness);
+let albedo = material.baseColor * (1.0 - material.metalness);
+```
+
+#### 菲涅尔项
+
+菲涅尔项的实现采用了Schlick近似，即公式x。同时参考虚幻4引擎^[9]^，使用球面高斯（Spherical Gaussian）近似^[14]^计算公式中的五次方项，略微提高了性能。另外，$$F_0$$ 小于0.02的值是在物理上错误的，所以这种情况发生时，可以认为此处的着色片段需要去掉菲涅尔效应带来的掠射角反射增强效果，虚幻^[9]^和寒霜^[11]^引擎都使用了这样的参数化技巧。
+$$
+F(\textbf v, \textbf h) \approx F_0 + (1 - F_0) 2^{(-5.55473(\textbf v \cdot \textbf h) - 6.98316)(\textbf v \cdot \textbf h)}
+$$
+菲涅尔项实现代码：
+
+```wgsl
+// src/renderer/resource/shaderChunk.js
+
+fn pow5(x: f32) -> f32 { // an approximation of pow5
+  let y = 1.0 - x;
+  return pow(2, (-5.55473 * y - 6.98316) * y);
+}
+
+fn Fresnel_Schlick(F0: vec3<f32>, VoH: f32) -> vec3<f32> { // Fresnel reflectance (Schlick approximation)
+  let Fc = pow5(1 - VoH);
+  return saturate(50.0 * F0.g) * Fc + (1.0 - Fc) * F0; // Anything less than 2% is physically impossible 
+}                                                      // and is instead considered to be shadowing
+```
+
+#### 法向分布与几何函数
+
+根据基于微表面模型的高光项BRDF（公式x），我们可以把几何项 $$G$$ 与分母的校正因子合并为一个可见性项（Visibility Term），记作 $$V$$
+$$
+f_{spec} = F(\textbf h, \textbf l)V(\textbf l, \textbf v, \textbf h)D(\textbf h) \qquad V(\textbf l, \textbf v, \textbf h) = \frac {G_2(\textbf l, \textbf v, \textbf h)} 
+{4 (\textbf n \cdot \textbf l)^+ (\textbf n \cdot \textbf v)^+}
+$$
+如果法向分布函数选择应用广泛的GGX模型，几何函数选择Heiz推荐的Smith高度相关的遮挡阴影函数。Lagarde^[11]^发现这种情况下，$$V$$ 项中的分母可以和 $$G_2$$ 项相消，从而转化为：
+$$
+\tag{1}
+V(\textbf l, \textbf v, \textbf h) = \frac {0.5} 
+{\mu_o \sqrt {\alpha_g^2 + \mu_i(\mu_i - \alpha_g^2\mu_i)} + \mu_1 \sqrt {\alpha_g^2 + \mu_o(\mu_o - \alpha_g^2\mu_o)}} \\
+其中 \; \mu_i = (\textbf n \cdot \textbf l)^+ \quad \mu_o = (\textbf n \cdot \textbf v)^+
+$$
+证明如下：
+
+结合公式x与公式x，可以得到GGX模型的高度相关Smith阴影遮挡函数的具体形式为：
+$$
+\begin{aligned}
+G_2(\textbf l, \textbf v, \textbf h) &=
+\frac {\chi^+(\textbf h \cdot \textbf v) \chi^+(\textbf h \cdot \textbf l)}
+{1 + \Lambda (\textbf v) + \Lambda (\textbf l)} \\
+&= \frac {1} {1 + \Lambda (\textbf v) + \Lambda (\textbf l)} \\
+&= \frac {2} { \sqrt{1 + \frac{1}{a_{\textbf v}}} + \sqrt{1 + \frac{1}{a_{\textbf l}}} } \\
+&= \frac {2} { \sqrt{1 + \frac{\alpha_g^2(1-\mu_o^2)}{\mu_o^2}} + \sqrt{1 + \frac{\alpha_g^2(1-\mu_i^2)}{\mu_i^2}} } \\
+&= \frac {2 \mu_i \mu_o} {\mu_i \sqrt{\mu_o^2 + \alpha_g^2(1-\mu_o^2) + \mu_o \sqrt{\mu_i^2 + \alpha_g^2(1-\mu_i^2)}}}
+\end{aligned}
+$$
+与 $$V$$ 项分母相消，即可得到公式x。
+
+Karis^[9]^提出了一种GGX模型的Smith $$G_1$$ 函数的近似，公式如下：
+$$
+\tag{1}
+G_1(\textbf s) \approx \frac {2(\textbf n \cdot \textbf s)} {(\textbf n \cdot \textbf s)(2 - \alpha_g^2) + \alpha_g^2}
+$$
+Hammon^[15]^提出，如果使用公式x近似的Smith $$G_1$$，那么 $$V$$ 项就可以写成：
+$$
+\tag{1}
+V(\textbf l, \textbf v, \textbf h) \approx \frac {0.5} {\mathrm{lerp} (2\mu_i\mu_o, \;\mu_i + \mu_o, \;\alpha_g)}
+$$
+其中 $$\mathrm{lerp}(x, y, x)$$ 为线性插值函数。
+
+GGX法向分布函数（公式x）代码为：
+
+```wgsl
+// src/renderer/resource/shaderChunk.js
+
+fn NDF_GGX(alpha: f32, NoH: f32) -> f32 { // normal distribution function (GGX)
+  let alpha2 = alpha * alpha;
+  let d = NoH * NoH * (alpha2 - 1.0) + 1.0;
+  return alpha2 / (PI * d * d);
+}
+```
+
+可见性项（公式x）的代码为：
+
+```
+// src/renderer/resource/shaderChunk.js
+
+fn G2_Smith(alpha: f32, NoL: f32, NoV: f32) -> f32 { // an approximation of Visibiity term
+  return 0.5 / (lerp(2 * NoL * NoV, NoL + NoV, alpha) + EPS);
+}
+```
+
+#### 多次弹射能量补偿
 
 
 
@@ -330,7 +449,10 @@ $$
 8. *Bruce Walter, Stephen R. Marschner, Hongsong Li, and Kenneth E. Torrance. 2007. Microfacet models for refraction through rough surfaces. In Proceedings of the 18th Eurographics conference on Rendering Techniques (EGSR'07). Eurographics Association, Goslar, DEU, 195–206.*
 9. *Karis, Brian. 2013. Real Shading in Unreal Engine 4. Physically based shading in theory and practice. In ACM SIGGRAPH 2013 Courses (SIGGRAPH '13). Association for Computing Machinery, New York, NY, USA, Article 22, 1–8. https://doi.org/10.1145/2504435.2504457*
 10. *Kulla, Christopher, and Alejandro Conty. 2017. Revisiting Physically Based Shading at Imageworks. Physically based shading in theory and practice. In ACM SIGGRAPH 2017 Courses (SIGGRAPH '17). Association for Computing Machinery, New York, NY, USA, Article 7, 1–8. https://doi.org/10.1145/3084873.3084893*
-11. *Lagarde, S´ebastian, and Charles de Rousiers. 2014. Moving Frostbite to Physically Based Rendering. Physically based shading in theory and practice. In ACM SIGGRAPH 2014 Courses (SIGGRAPH '14). Association for Computing Machinery, New York, NY, USA, Article 23, 1–8. https://doi.org/10.1145/2614028.2615431*
+11. *Lagarde, Sébastian, and Charles de Rousiers. 2014. Moving Frostbite to Physically Based Rendering. Physically based shading in theory and practice. In ACM SIGGRAPH 2014 Courses (SIGGRAPH '14). Association for Computing Machinery, New York, NY, USA, Article 23, 1–8. https://doi.org/10.1145/2614028.2615431*
 12. *Kautz, Jan & Snyder, John & Sloan, Peter-Pike. 2002. Fast, Arbitrary BRDF Shading for Low-Frequency Lighting Using Spherical Harmonics. Proceedings of the 13th Eurographics Workshop on Rendering, ACM, 291-296 (2002). 291-296.* 
 13. *Burley, Brent. 2015. Physically Based Shading at Disney. Practical physically-based shading in film and game production. In ACM SIGGRAPH 2012 Courses (SIGGRAPH '12). Association for Computing Machinery, New York, NY, USA, Article 10, 1–7. https://doi.org/10.1145/2343483.2343493*
+14. *Lagarde, Sébastien. 2012. Spherical Gaussian approximation for Blinn-Phong, Phong and Fresnel. https://seblagarde.wordpress.com/2012/06/03/spherical-gaussien-approximation-for-blinn-phong-phong-and-fresnel/*
+15. *Earl Hammon, Jr.. 2007. PBR Diffuse Lighting for GGX+Smith Microsurfaces. Game Developers Conference.*
+16. 
 

@@ -340,10 +340,10 @@ fn PBRShading(
 ) -> vec3<f32> {
 
   let H = normalize(V + L);
-  let NoV = dot(N, V);
-  let NoL = dot(N, L);
-  let NoH = dot(N, H);
-  let VoH = dot(V, H);
+  let NoV = saturate(dot(N, V));
+  let NoL = saturate(dot(N, L));
+  let NoH = saturate(dot(N, H));
+  let VoH = saturate(dot(V, H));
   let alpha = material.roughness * material.roughness;
 
   let F0 = lerp_vec3(vec3<f32>(0.04), material.albedo, material.metalness);
