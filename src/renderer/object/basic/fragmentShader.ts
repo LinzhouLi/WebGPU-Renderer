@@ -53,7 +53,6 @@ ${Definitions.PBRMaterial}
 ${Constants}
 
 ${ToolFunction.Random}
-${ToolFunction.Pow5}
 ${ToolFunction.Lerp}
 ${ToolFunction.SampleTexture}
 

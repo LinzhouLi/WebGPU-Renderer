@@ -187,7 +187,6 @@ const LutShader = /* wgsl */`
 
 ${Constants}
 
-${ToolFunction.Pow5}
 ${ToolFunction.Lerp}
 ${ToolFunction.SampleTexture}
 
@@ -212,13 +211,13 @@ fn integrateBRDF(roughness: f32, NoV: f32) -> vec2<f32> {
     let L = reflect(-V, H);
 
     if (L.y > 0) {
-      let NoL = L.y;
-      let NoH = H.y;
+      let NoL = saturate(L.y);
+      let NoH = saturate(H.y);
       let VoH = saturate(dot(V, H));
 
       let G = G2_Smith(alpha, NoL, NoV);
-      let G_Vis = G * VoH * NoL / saturate(NoH);
-      let Fc = pow5(1 - VoH);
+      let G_Vis = G * VoH * NoL / NoH;
+      let Fc = exp2((-5.55473 * VoH - 6.98316) * VoH);
 
       integrateEnergy.x = integrateEnergy.x + (1.0 - Fc) * G_Vis;
       integrateEnergy.y = integrateEnergy.y + Fc * G_Vis;

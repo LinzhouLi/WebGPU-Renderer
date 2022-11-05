@@ -321,7 +321,7 @@ let albedo = material.baseColor * (1.0 - material.metalness);
 
 #### 菲涅尔项
 
-菲涅尔项的实现采用了Schlick近似，即公式x。同时参考虚幻4引擎^[9]^，使用球面高斯（Spherical Gaussian）近似^[14]^计算公式中的五次方项，略微提高了性能。另外，$$F_0$$ 小于0.02的值是在物理上错误的，所以这种情况发生时，可以认为此处的着色片段需要去掉菲涅尔效应带来的掠射角反射增强效果，虚幻^[9]^和寒霜^[11]^引擎都使用了这样的参数化技巧。
+菲涅尔项的实现采用了Schlick近似，即公式x。同时参考虚幻4引擎^[9]^，使用球面高斯（Spherical Gaussian）近似^[14]^计算公式中的五次方项，略微提高了性能（内置函数`exp2()`比`pow()`更快）。另外，$$F_0$$ 小于0.02的值是在物理上错误的，所以这种情况发生时，可以认为此处的着色片段需要去掉菲涅尔效应带来的掠射角反射增强效果，虚幻^[9]^和寒霜^[11]^引擎都使用了这样的参数化技巧。
 $$
 F(\textbf v, \textbf h) \approx F_0 + (1 - F_0) 2^{(-5.55473(\textbf v \cdot \textbf h) - 6.98316)(\textbf v \cdot \textbf h)}
 $$
@@ -330,13 +330,8 @@ $$
 ```wgsl
 // src/renderer/resource/shaderChunk.js
 
-fn pow5(x: f32) -> f32 { // an approximation of pow5
-  let y = 1.0 - x;
-  return pow(2, (-5.55473 * y - 6.98316) * y);
-}
-
 fn Fresnel_Schlick(F0: vec3<f32>, VoH: f32) -> vec3<f32> { // Fresnel reflectance (Schlick approximation)
-  let Fc = pow5(1 - VoH);
+  let Fc = exp2((-5.55473 * VoH - 6.98316) * VoH); // faster than pow()
   return saturate(50.0 * F0.g) * Fc + (1.0 - Fc) * F0; // Anything less than 2% is physically impossible 
 }                                                      // and is instead considered to be shadowing
 ```

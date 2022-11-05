@@ -79,13 +79,6 @@ fn lerp_vec4(a: vec4<f32>, b: vec4<f32>, s: f32) -> vec4<f32> {
 }
 `;
 
-const Pow5 = /* wgsl */`
-fn pow5(x: f32) -> f32 { // an approximation of pow5, see https://blog.selfshadow.com/publications/s2013-shading-course/karis/s2013_pbs_epic_notes_v2.pdf
-  let y = 1.0 - x;
-  return pow(2, (-5.55473 * y - 6.98316) * y);
-}
-`;
-
 const Mod = /* wgsl */`
 fn get_mod(x: f32, y:f32) -> f32 {
   return (x - y * floor(x / y));
@@ -155,7 +148,7 @@ fn linearSampleTexture(texture: texture_1d<f32>, u: f32) -> vec4<f32> {
 }
 `;
 
-const ToolFunction = { Random, Lerp, Pow5, Mod, SampleTexture };
+const ToolFunction = { Random, Lerp, Mod, SampleTexture };
 
 // sampling
 
@@ -302,17 +295,14 @@ fn NDF_GGX(alpha: f32, NoH: f32) -> f32 { // normal distribution function (GGX)
 
 const Fresnel = /* wgsl */`
 fn Fresnel_Schlick(F0: vec3<f32>, VoH: f32) -> vec3<f32> { // Fresnel reflectance (Schlick approximation)
-  let VoH_ = saturate(VoH);
-  let Fc = pow5(1 - VoH_);
+  let Fc = exp2((-5.55473 * VoH - 6.98316) * VoH);
   return saturate(50.0 * F0.g) * Fc + (1.0 - Fc) * F0; // Anything less than 2% is physically impossible 
 }                                                      // and is instead considered to be shadowing
 `;
 
 const Geometry = /* wgsl */`
-fn G2_Smith(alpha: f32, NoL: f32, NoV: f32) -> f32 { // an approximation of (the height-correlated Smith G2 function
-  let NoL_ = abs(NoL);                               // combined with the denominator of specular BRDF)
-  let NoV_ = abs(NoV);
-  return 0.5 / (lerp(2 * NoL_ * NoV_, NoL_ + NoV_, alpha) + EPS);
+fn G2_Smith(alpha: f32, NoL: f32, NoV: f32) -> f32 {          // an approximation of (the height-correlated Smith G2 function
+  return 0.5 / (lerp(2 * NoL * NoV, NoL + NoV, alpha) + EPS); // combined with the denominator of specular BRDF)
 }
 `;
 
@@ -344,8 +334,8 @@ fn PBRShading(
   let NoL = saturate(dot(N, L));
   let NoH = saturate(dot(N, H));
   let VoH = saturate(dot(V, H));
-  let alpha = material.roughness * material.roughness;
 
+  let alpha = material.roughness * material.roughness;
   let F0 = lerp_vec3(vec3<f32>(0.04), material.albedo, material.metalness);
 
   let G = G2_Smith(alpha, NoL, NoV);
@@ -381,7 +371,7 @@ fn PBREnvShading(
 
   let fms = multiBounce(F0, material.roughness, NoV, NoV);
 
-  return (diffuse + specular + fms);
+  return (diffuse + specular);
 
 }
 `;

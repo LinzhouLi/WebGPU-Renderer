@@ -10,7 +10,6 @@ const EmuComputeShader = /* wgsl */`
 ${Constants}
 
 ${ToolFunction.Lerp}
-${ToolFunction.Pow5}
 ${ToolFunction.SampleTexture}
 
 ${Sampling.RadicalInverse}
@@ -35,8 +34,8 @@ fn integrateBRDF(roughness: f32, NoV: f32) -> f32 {
     let L = reflect(-V, H);
 
     if (L.y > 0) {
-      let NoL = L.y;
-      let NoH = H.y;
+      let NoL = saturate(L.y);
+      let NoH = saturate(H.y);
       let VoH = saturate(dot(V, H));
 
       // BRDF = D * F * G = D * G   (F0 = 1.0 => F = 1.0)
@@ -46,7 +45,7 @@ fn integrateBRDF(roughness: f32, NoV: f32) -> f32 {
       //        = 4 * G * VoH * NoL / NoH
 
       let G = G2_Smith(alpha, NoL, NoV);
-      integrateEnergy = integrateEnergy + (G * VoH * NoL) / saturate(NoH); // saturate!!!!
+      integrateEnergy = integrateEnergy + (G * VoH * NoL) / NoH; // saturate!!!!
     }
   }
 
