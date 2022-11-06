@@ -152,20 +152,24 @@ fn main(
   // let shadingColor = blinnPhong(fragPosition, normal, albedo);
 
   // PBR shading
-  let directShading = PBRShading(
-    normal, normalize(camera.position - fragPosition), normalize(light.direction),
-    localMaterial, light.color
-  );
+  // let directShading = PBRShading(
+  //   normal, normalize(camera.position - fragPosition), normalize(light.direction),
+  //   localMaterial, light.color
+  // );
   let envShading = PBREnvShading(
     normal, normalize(camera.position - fragPosition), localMaterial
   );
 
-  var color: vec3<f32> = 0.6 * (directShading * visibility + envShading);
+  // var color: vec3<f32> = 0.6 * (directShading * visibility + envShading);
+  var color: vec3<f32> = envShading;
 
   // tone mapping
   color = ACESToneMapping(color);
 
-  return vec4<f32>(color, 1.0);
+  return vec4<f32>(
+    vec3<f32>(bilinearSampleTexture(Emu, fragUV.yx).x)
+    , 1.0);
+
 
 }
 `

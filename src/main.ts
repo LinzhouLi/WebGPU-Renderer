@@ -102,7 +102,7 @@ class Main {
       // animation
       this.mixer = new THREE.AnimationMixer(mesh);
       mesh.rotation.set(0, -0.75 * Math.PI, 0)
-      this.scene.add( mesh );
+      // this.scene.add( mesh );
     }
 
     {
@@ -132,7 +132,7 @@ class Main {
       const geometry = new THREE.SphereGeometry( 0.2 );
       const material = new THREE.MeshStandardMaterial({color: 0xffffff});
       material.color = new THREE.Color(1,1,1);
-      material.roughness = 0.1;
+      material.roughness = 0.01;
       material.metalness = 0.0;
       const mesh = new THREE.Mesh( geometry, material );
       mesh.position.set(0, 3.2, 0);
@@ -173,7 +173,7 @@ class Main {
       const geometry = new THREE.SphereGeometry( 0.2 );
       const material = new THREE.MeshStandardMaterial({color: 0xffffff});
       material.color = new THREE.Color(1,1,1);
-      material.roughness = 0.1;
+      material.roughness = 0.01;
       material.metalness = 1.0;
       const mesh = new THREE.Mesh( geometry, material );
       mesh.position.set(0, 2.5, 0);

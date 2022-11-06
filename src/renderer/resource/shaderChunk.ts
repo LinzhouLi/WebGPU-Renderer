@@ -205,7 +205,7 @@ fn hemisphereSampleUniform(sample2D: vec2<f32>) -> vec3<f32> {
 
 const GGXImportance = /* wgsl */`
 fn GGXImportanceSample(sample2D: vec2<f32>, alpha: f32) -> vec3<f32> {
-  let alpha2 = clamp(alpha * alpha, 0.00002, 1.0); // a strange bug
+  let alpha2 = alpha * alpha;
   let phi = sample2D.x * PI_twice;
   let cosTheta = sqrt((1.0 - sample2D.y) / (sample2D.y * (alpha2 - 1.0) + 1.0));
   let sinTheta = sqrt(1.0 - cosTheta * cosTheta);
@@ -311,13 +311,13 @@ fn multiBounce(F0: vec3<f32>, roughness: f32, NoL: f32, NoV: f32) -> vec3<f32> {
   let Favg = (20.0 * F0 + 1.0) / 21.0;
   let oneMinusFavg = vec3<f32>(1.0) - Favg;
   let Eavg = linearSampleTexture(Eavg, roughness).x;
-  let oneMinusEavg = vec3<f32>(1.0) - Eavg;
-  let EmuL = bilinearSampleTexture(Emu, vec2<f32>(roughness, saturate(NoL))).x;
-  let EmuV = bilinearSampleTexture(Emu, vec2<f32>(roughness, saturate(NoV))).x;
-  let oneMinusEmuL = vec3<f32>(1.0) - EmuL;
-  let oneMinusEmuV = vec3<f32>(1.0) - EmuV;
+  let oneMinusEavg = 1.0 - Eavg;
+  let EmuL = bilinearSampleTexture(Emu, vec2<f32>(roughness, NoL)).x;
+  let EmuV = bilinearSampleTexture(Emu, vec2<f32>(roughness, NoV)).x;
+  let oneMinusEmuL = 1.0 - EmuL;
+  let oneMinusEmuV = 1.0 - EmuV;
   let fms = oneMinusEmuL * oneMinusEmuV / (PI * oneMinusEavg);
-  let fadd = Favg * Eavg / (vec3<f32>(1.0) - Favg * oneMinusEavg);
+  let fadd =  Favg * Eavg / (vec3<f32>(1.0) - Favg * oneMinusEavg);
   return fms * fadd;
 }
 `;
@@ -345,7 +345,7 @@ fn PBRShading(
   let diffuse = material.albedo * (1.0 - F) * (1.0 - material.metalness) / PI;
   let fms = multiBounce(F0, material.roughness, NoL, NoV);
 
-  return PI * (specular + diffuse + fms) * radiance * saturate(NoL);
+  return PI * (specular + diffuse + fms) * radiance * NoL;
 
 }
 `;
@@ -358,7 +358,7 @@ fn PBREnvShading(
 
   let NoV = saturate(dot(N, V));
   let F0 = lerp_vec3(vec3<f32>(0.04), material.albedo, material.metalness);
-  let F = Fresnel_Schlick(F0, NoV);
+  let F = F0 + (max(vec3<f32>(1.0 - material.roughness), F0) - F0) * exp2((-5.55473 * NoV - 6.98316) * NoV);
 
   let irradiance = textureSample(diffuseEnvMap, linearSampler, N).xyz;
   let diffuse = material.albedo * irradiance * (1.0 - F) * (1.0 - material.metalness);
@@ -367,11 +367,11 @@ fn PBREnvShading(
   let mipCount = f32(textureNumLevels(envMap));
   let prefilterEnv = textureSampleLevel(envMap, linearSampler, L, material.roughness * mipCount).xyz;
   let brdf = bilinearSampleTexture(Lut, vec2<f32>(material.roughness, NoV)).xy;
-  let specular = prefilterEnv * (F0 * brdf.x + brdf.y);
-
   let fms = multiBounce(F0, material.roughness, NoV, NoV);
+  let specular = prefilterEnv * (F0 * brdf.x + brdf.y + fms);
 
-  return (diffuse + specular);
+  // return (diffuse + specular);
+  return fms;
 
 }
 `;

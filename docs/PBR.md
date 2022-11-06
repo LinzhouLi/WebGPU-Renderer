@@ -340,6 +340,7 @@ fn Fresnel_Schlick(F0: vec3<f32>, VoH: f32) -> vec3<f32> { // Fresnel reflectanc
 
 根据基于微表面模型的高光项BRDF（公式x），我们可以把几何项 $$G$$ 与分母的校正因子合并为一个可见性项（Visibility Term），记作 $$V$$
 $$
+\tag{1}
 f_{spec} = F(\textbf h, \textbf l)V(\textbf l, \textbf v, \textbf h)D(\textbf h) \qquad V(\textbf l, \textbf v, \textbf h) = \frac {G_2(\textbf l, \textbf v, \textbf h)} 
 {4 (\textbf n \cdot \textbf l)^+ (\textbf n \cdot \textbf v)^+}
 $$
@@ -397,6 +398,53 @@ fn NDF_GGX(alpha: f32, NoH: f32) -> f32 { // normal distribution function (GGX)
 
 fn G2_Smith(alpha: f32, NoL: f32, NoV: f32) -> f32 { // an approximation of Visibiity term
   return 0.5 / (lerp(2 * NoL * NoV, NoL + NoV, alpha) + EPS);
+}
+```
+
+#### 直接光照下的PBR着色
+
+结合漫反射BRDF（公式x）与高光项BRDF（公式x），可以得到最终的BRDF公式为：
+$$
+f = f_{spec} + k_d \cdot f_{diff} = FVD
++ (1 - F) \frac{\rho_{ss}} {\pi}
+$$
+在多个光源照射下的着色公式为：
+$$
+L_o(\textbf v) = \pi \sum_{i=1}^n f(\textbf l_{c_i},\;\textbf v) \textbf c_{light_i} (\textbf n \cdot \textbf l_{c_i})^+
+$$
+着色代码为：
+
+```wgsl
+// src/renderer/resource/shaderChunk.js
+
+struct PBRMaterial {
+  roughness: f32,       // [0, 1]
+  metalness: f32,       // {0, 1}
+  baseColor: vec3<f32>,    
+}
+
+fn PBRShading(
+  N: vec3<f32>, V: vec3<f32>, L: vec3<f32>, 
+  material: PBRMaterial, radiance: vec3<f32>
+) -> vec3<f32> {
+
+  let H = normalize(V + L);
+  let NoV = saturate(dot(N, V));
+  let NoL = saturate(dot(N, L));
+  let NoH = saturate(dot(N, H));
+  let VoH = saturate(dot(V, H));
+
+  let alpha = material.roughness * material.roughness;
+  let F0 = lerp_vec3(vec3<f32>(0.04), material.baseColor, material.metalness);
+
+  let G = G2_Smith(alpha, NoL, NoV);
+  let D = NDF_GGX(alpha, NoH);
+  let F = Fresnel_Schlick(F0, VoH);
+  let specular = G * D * F;
+  let diffuse = material.baseColor * (1.0 - F) * (1.0 - material.metalness) / PI;
+
+  return PI * (specular + diffuse) * radiance * NoL;
+
 }
 ```
 
