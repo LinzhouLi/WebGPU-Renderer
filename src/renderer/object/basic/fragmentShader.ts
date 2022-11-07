@@ -38,9 +38,7 @@ ${Definitions.PBRMaterial}
 @group(0) @binding(5) var compareSampler: sampler_comparison;
 @group(0) @binding(6) var linearSampler: sampler;
 
-@group(0) @binding(7) var Emu: texture_2d<f32>;
-@group(0) @binding(8) var Eavg: texture_1d<f32>;
-@group(0) @binding(9) var Lut: texture_2d<f32>;
+@group(0) @binding(7) var Lut: texture_2d<f32>;
 
 @group(1) @binding(1) var<uniform> material: PBRMaterial;
 #if ${baseMap}
@@ -62,7 +60,6 @@ ${Shadow.PCF}
 ${PBR.NDF}
 ${PBR.Geometry}
 ${PBR.Fresnel}
-${PBR.MultiBounce}
 ${PBR.Shading}
 ${PBR.EnvironmentShading}
 
@@ -166,9 +163,7 @@ fn main(
   // tone mapping
   color = ACESToneMapping(color);
 
-  return vec4<f32>(
-    vec3<f32>(bilinearSampleTexture(Emu, fragUV.yx).x)
-    , 1.0);
+  return vec4<f32>(color, 1.0);
 
 
 }

@@ -136,7 +136,6 @@ class RenderController {
     if (this.light === null) throw new Error('No Light');
     this.globalObject = new GlobalObject(this.camera, this.light, this.scene);
 
-    this.multiBounceBRDF = new MultiBounceBRDF();
     this.iBL = new IBL();
 
   }
@@ -154,7 +153,6 @@ class RenderController {
     }
 
     // pre compute
-    await this.multiBounceBRDF.initComputePipeline(this.globalObject.resource);
     await this.iBL.initComputePipeline(this.globalObject.resource);
     await this.precompute();
 
@@ -163,7 +161,6 @@ class RenderController {
   public async precompute() {
     
     device.queue.submit([
-      this.multiBounceBRDF.run(),
       this.iBL.run()
     ]);
     await device.queue.onSubmittedWorkDone();

@@ -132,7 +132,7 @@ fn mipMapStore(
 
 }
 
-const SANPLE_COUNT: u32 = 256;
+const SANPLE_COUNT: u32 = 1024;
 
 fn integrateLight(N: vec3<f32>, roughness: f32) -> vec4<f32> {
 
@@ -195,8 +195,9 @@ ${Sampling.Hammersley}
 ${Sampling.GGXImportance}
 
 ${PBR.Geometry}
+${PBR.Fresnel}
 
-const SANPLE_COUNT: u32 = 256;
+const SANPLE_COUNT: u32 = 1024;
 
 fn integrateBRDF(roughness: f32, NoV: f32) -> vec2<f32> {
 
@@ -216,11 +217,11 @@ fn integrateBRDF(roughness: f32, NoV: f32) -> vec2<f32> {
       let VoH = saturate(dot(V, H));
 
       let G = G2_Smith(alpha, NoL, NoV);
-      let G_Vis = G * VoH * NoL / NoH;
-      let Fc = exp2((-5.55473 * VoH - 6.98316) * VoH);
+      let Gv = G * VoH * NoL / NoH;
+      let Fc = computeFc(VoH);
 
-      integrateEnergy.x = integrateEnergy.x + (1.0 - Fc) * G_Vis;
-      integrateEnergy.y = integrateEnergy.y + Fc * G_Vis;
+      integrateEnergy.x = integrateEnergy.x + Fc * Gv;
+      integrateEnergy.y = integrateEnergy.y + Gv;
     }
   }
 

@@ -286,22 +286,35 @@ const Shadow = { hardShadow, PCF };
 
 const NDF = /* wgsl */`
 fn NDF_GGX(alpha: f32, NoH: f32) -> f32 { // normal distribution function (GGX)
-  let NoH_ = saturate(NoH);
   let alpha2 = alpha * alpha;
-  let d = NoH_ * NoH_ * (alpha2 - 1.0) + 1.0;
+  let d = NoH * (NoH * alpha2 - NoH) + 1.0;
   return alpha2 / (PI * d * d);
 }
 `;
 
 const Fresnel = /* wgsl */`
+fn computeFc(VoH: f32) -> f32 {
+  // return exp2((-5.55473 * VoH - 6.98316) * VoH);
+  let v = 1.0 - VoH;
+  let v2 = v * v;
+  return v2 * v2 * v;
+}
+
 fn Fresnel_Schlick(F0: vec3<f32>, VoH: f32) -> vec3<f32> { // Fresnel reflectance (Schlick approximation)
-  let Fc = exp2((-5.55473 * VoH - 6.98316) * VoH);
+  let Fc = computeFc(VoH);
   return saturate(50.0 * F0.g) * Fc + (1.0 - Fc) * F0; // Anything less than 2% is physically impossible 
 }                                                      // and is instead considered to be shadowing
 `;
 
 const Geometry = /* wgsl */`
-fn G2_Smith(alpha: f32, NoL: f32, NoV: f32) -> f32 {          // an approximation of (the height-correlated Smith G2 function
+fn G2_Smith(alpha: f32, NoL: f32, NoV: f32) -> f32 {
+  let alpha2 = alpha * alpha;
+  let GGXL = NoV * sqrt((-NoL * alpha2 + NoL) * NoL + alpha2);
+  let GGXV = NoL * sqrt((-NoV * alpha2 + NoV) * NoV + alpha2);
+  return 0.5 / (GGXL + GGXV + EPS);
+}
+
+fn G2_Smith_approx(alpha: f32, NoL: f32, NoV: f32) -> f32 {          // an approximation of (the height-correlated Smith G2 function
   return 0.5 / (lerp(2 * NoL * NoV, NoL + NoV, alpha) + EPS); // combined with the denominator of specular BRDF)
 }
 `;
@@ -341,11 +354,12 @@ fn PBRShading(
   let G = G2_Smith(alpha, NoL, NoV);
   let D = NDF_GGX(alpha, NoH);
   let F = Fresnel_Schlick(F0, VoH);
-  let specular = G * D * F;
+  let dfg = bilinearSampleTexture(Lut, vec2<f32>(material.roughness, NoV)).xy;
+  let energyCompensation = 1.0 + F0 * (1 / dfg.y - 1.0);
+  let specular = G * D * F * energyCompensation;
   let diffuse = material.albedo * (1.0 - F) * (1.0 - material.metalness) / PI;
-  let fms = multiBounce(F0, material.roughness, NoL, NoV);
 
-  return PI * (specular + diffuse + fms) * radiance * NoL;
+  return PI * (specular + diffuse) * radiance * NoL;
 
 }
 `;
@@ -358,7 +372,7 @@ fn PBREnvShading(
 
   let NoV = saturate(dot(N, V));
   let F0 = lerp_vec3(vec3<f32>(0.04), material.albedo, material.metalness);
-  let F = F0 + (max(vec3<f32>(1.0 - material.roughness), F0) - F0) * exp2((-5.55473 * NoV - 6.98316) * NoV);
+  let F = F0 + (max(vec3<f32>(1.0 - material.roughness), F0) - F0) * computeFc(NoV);
 
   let irradiance = textureSample(diffuseEnvMap, linearSampler, N).xyz;
   let diffuse = material.albedo * irradiance * (1.0 - F) * (1.0 - material.metalness);
@@ -366,12 +380,10 @@ fn PBREnvShading(
   let L = reflect(-V, N);
   let mipCount = f32(textureNumLevels(envMap));
   let prefilterEnv = textureSampleLevel(envMap, linearSampler, L, material.roughness * mipCount).xyz;
-  let brdf = bilinearSampleTexture(Lut, vec2<f32>(material.roughness, NoV)).xy;
-  let fms = multiBounce(F0, material.roughness, NoV, NoV);
-  let specular = prefilterEnv * (F0 * brdf.x + brdf.y + fms);
+  let dfg = bilinearSampleTexture(Lut, vec2<f32>(material.roughness, NoV)).xy;
+  var specular = mix(dfg.xxx, dfg.yyy, F0) * (1.0 + F0 * (1 / dfg.y - 1.0)) * prefilterEnv;
 
-  // return (diffuse + specular);
-  return fms;
+  return (diffuse + specular);
 
 }
 `;

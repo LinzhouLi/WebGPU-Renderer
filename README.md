@@ -47,3 +47,7 @@ kulla-conty precompute:
 LUT Texture:
 
 ![lut](img/lut.png)
+
+Image Based Lighting
+
+![IBL](img/IBL.png)
