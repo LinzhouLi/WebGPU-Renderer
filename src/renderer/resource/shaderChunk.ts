@@ -1,4 +1,3 @@
-import { MultiBounceBRDF } from '../precompute/multiBounceBRDF';
 
 // structue definition
 
