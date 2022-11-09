@@ -132,7 +132,7 @@ fn mipMapStore(
 
 }
 
-const SANPLE_COUNT: u32 = 1024;
+const SANPLE_COUNT: u32 = 512;
 
 fn integrateLight(N: vec3<f32>, roughness: f32) -> vec4<f32> {
 
@@ -197,7 +197,7 @@ ${Sampling.GGXImportance}
 ${PBR.Geometry}
 ${PBR.Fresnel}
 
-const SANPLE_COUNT: u32 = 1024;
+const SANPLE_COUNT: u32 = 512;
 
 fn integrateBRDF(roughness: f32, NoV: f32) -> vec2<f32> {
 
@@ -216,9 +216,9 @@ fn integrateBRDF(roughness: f32, NoV: f32) -> vec2<f32> {
       let NoH = saturate(H.y);
       let VoH = saturate(dot(V, H));
 
-      let G = G2_Smith(alpha, NoL, NoV);
+      let G = G2_Smith_approx(alpha, NoL, NoV);
       let Gv = G * VoH * NoL / NoH;
-      let Fc = computeFc(VoH);
+      let Fc = computeFc_approx(VoH);
 
       integrateEnergy.x = integrateEnergy.x + Fc * Gv;
       integrateEnergy.y = integrateEnergy.y + Gv;
@@ -404,6 +404,7 @@ class IBL {
     const commandEncoder = device.createCommandEncoder();
     const passEncoder = commandEncoder.beginComputePass();
 
+    // LUT
     passEncoder.setPipeline(this.LutComputePipeline);
     passEncoder.setBindGroup(0, this.LutBindGroup.group);
     passEncoder.dispatchWorkgroups(
@@ -411,6 +412,7 @@ class IBL {
       Math.ceil(IBL.LutResulotion / 16)
     );
 
+    // Diffuse Env
     passEncoder.setPipeline(this.DiffuseEnvComputePipeline);
     passEncoder.setBindGroup(0, this.DiffuseEnvBindGroup.group);
     passEncoder.dispatchWorkgroups(
@@ -419,6 +421,7 @@ class IBL {
       6
     );
 
+    // Specular Env
     passEncoder.setPipeline(this.SpecularEnvComputePipeline);
     passEncoder.setBindGroup(0, this.SpecularEnvBindGroup.group);
     passEncoder.dispatchWorkgroups(

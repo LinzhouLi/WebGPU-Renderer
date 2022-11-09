@@ -65,6 +65,7 @@ ${PBR.EnvironmentShading}
 
 ${ACESToneMapping}
 
+
 fn blinnPhong(position: vec3<f32>, normal: vec3<f32>, albedo: vec3<f32>) -> vec3<f32> {
 
 #if ${pointLight}
@@ -149,16 +150,18 @@ fn main(
   // let shadingColor = blinnPhong(fragPosition, normal, albedo);
 
   // PBR shading
-  // let directShading = PBRShading(
-  //   normal, normalize(camera.position - fragPosition), normalize(light.direction),
-  //   localMaterial, light.color
-  // );
+  let viewDir = normalize(camera.position - fragPosition);
+  let lightDir = normalize(light.direction);
+  let directShading = PBRShading(
+    normal, viewDir, lightDir,
+    localMaterial, light.color
+  );
   let envShading = PBREnvShading(
-    normal, normalize(camera.position - fragPosition), localMaterial
+    normal, viewDir, localMaterial
   );
 
-  // var color: vec3<f32> = 0.6 * (directShading * visibility + envShading);
-  var color: vec3<f32> = envShading;
+  var color: vec3<f32> = (0.7 * directShading * visibility + 0.7 * envShading);
+  // var color: vec3<f32> = envShading;
 
   // tone mapping
   color = ACESToneMapping(color);

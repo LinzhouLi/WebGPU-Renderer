@@ -304,7 +304,7 @@ const ResourceFormat = {
   },
 
   // for instanced mesh
-  instanceInfo: {
+  instancedInfo: {
     type: 'buffer' as ResourceType,
     label: 'Instance Infomation',
     visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,

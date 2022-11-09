@@ -44,7 +44,7 @@ fn integrateBRDF(roughness: f32, NoV: f32) -> f32 {
       //        = D * G * NoL / (D * NoH / (4 * VoH))
       //        = 4 * G * VoH * NoL / NoH
 
-      let G = G2_Smith(alpha, NoL, NoV);
+      let G = G2_Smith_approx(alpha, NoL, NoV);
       integrateEnergy = integrateEnergy + (G * VoH * NoL) / NoH; // saturate!!!!
     }
   }

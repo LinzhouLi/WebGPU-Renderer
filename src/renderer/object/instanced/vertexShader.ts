@@ -1,35 +1,29 @@
 import { wgsl } from '../../../3rd-party/wgsl-preprocessor';
+import { Definitions } from '../../resource/shaderChunk';
 
 export function createVertexShader(attributes: string[], pass: ('render' | 'shadow' | 'skybox') = 'render') {
 
   const tangent = attributes.includes('tangent') && attributes.includes('normalMapArray');
+  const pointLight = attributes.includes('pointLight');
 
   let code: string;
 
   if (pass === 'render') { // render pass
     code = wgsl
 /* wgsl */`
-struct Camera {
-  position: vec3<f32>,
-  viewMat: mat4x4<f32>,
-  projectionMat: mat4x4<f32>
-};
-
-struct PointLight {
-  position: vec3<f32>,
-  color: vec3<f32>,
-  viewProjectionMat: mat4x4<f32>
-};
-
-struct Transform {
-  modelMat: mat4x4<f32>,
-  normalMat : mat3x3<f32>
-};
+${Definitions.Camera}
+${Definitions.PointLight}
+${Definitions.DirectionalLight}
+${Definitions.Transform}
 
 @group(0) @binding(0) var<uniform> camera: Camera;
-@group(0) @binding(1) var<uniform> pointLight: PointLight;
+#if ${pointLight}
+@group(0) @binding(1) var<uniform> light: PointLight;
+#else
+@group(0) @binding(1) var<uniform> light: DirectionalLight;
+#endif
 
-@group(0) @binding(5) var<storage, read> transforms: array<Transform>;
+@group(1) @binding(0) var<storage, read> transforms: array<Transform>;
 
 struct VertexOutput {
   @builtin(position) position: vec4<f32>,
@@ -64,7 +58,7 @@ fn main(
   output.fragPosition = (transform.modelMat * pos).xyz;
   output.fragNormal = outNormal;
   output.fragUV = uv;
-  output.shadowPos = pointLight.viewProjectionMat * transform.modelMat * pos; // 在fragment shader中进行透视除法, 否则插值出错
+  output.shadowPos = light.viewProjectionMat * transform.modelMat * pos; // 在fragment shader中进行透视除法, 否则插值出错
   output.index = index;
 
 #if ${tangent}

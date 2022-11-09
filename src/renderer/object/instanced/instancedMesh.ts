@@ -90,7 +90,7 @@ class InstancedMesh extends RenderableObject {
 
   public setInfo(textureIndices: number[]) {
 
-    this.resourceCPUData.instanceInfo = new Uint32Array(textureIndices);
+    this.resourceCPUData.instancedInfo = new Uint32Array(textureIndices);
 
   }
 
@@ -115,7 +115,7 @@ class InstancedMesh extends RenderableObject {
 
   public async initGroupResource() {
 
-    this.resourceAttributes = ['instancedTransform', 'instanceInfo', 'instancedColor', 'baseMapArray', 'normalMapArray'];
+    this.resourceAttributes = ['instancedTransform', 'instancedColor', 'instancedInfo', 'baseMapArray', 'normalMapArray'];
     this.resource = await resourceFactory.createResource(this.resourceAttributes, this.resourceCPUData);
 
   }
@@ -128,15 +128,23 @@ class InstancedMesh extends RenderableObject {
     const lightType = globalResource.pointLight ? 'pointLight' : 'directionalLight';
 
     const vertexLayout = vertexBufferFactory.createLayout(this.vertexBufferAttributes);
-    const { layout, group } = bindGroupFactory.create(
-      [ lightType, 'pointLight', 'shadowMapSampler', 'linearSampler', 'shadowMap', ...this.resourceAttributes ],
-      { ...globalResource, ...this.resource }
+    const gloablBind = bindGroupFactory.create(
+      [ 
+        'camera', lightType, 
+        'shadowMap', 'envMap', 'diffuseEnvMap',
+        'compareSampler', 'linearSampler',
+        'Lut'
+      ],
+      globalResource
+    );
+    const localBind = bindGroupFactory.create(
+      this.resourceAttributes, this.resource
     );
     
     this.renderPipeline = await device.createRenderPipelineAsync({
       label: 'Render Pipeline',
       layout: device.createPipelineLayout({ 
-        bindGroupLayouts: [layout]
+        bindGroupLayouts: [gloablBind.layout, localBind.layout]
       }),
       vertex: {
         module: device.createShaderModule({ code: 
@@ -180,7 +188,8 @@ class InstancedMesh extends RenderableObject {
     }
 
     // set bind group
-    bundleEncoder.setBindGroup(0, group);
+    bundleEncoder.setBindGroup(0, gloablBind.group);
+    bundleEncoder.setBindGroup(1, localBind.group);
 
     // draw
     if (indexed) bundleEncoder.drawIndexed(this.vertexCount, this.instanceCount);

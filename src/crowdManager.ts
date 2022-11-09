@@ -34,7 +34,7 @@ class CrowdManager {
 
   private initParameter() {
     
-    const row = 20, col = 20;
+    const row = 10, col = 10;
     this.avatarCount = row * col;
 
     this.avatarParam = {
@@ -47,7 +47,7 @@ class CrowdManager {
 
     for(let i = 0; i < row; i++) {
       for (let j = 0; j < col; j++) {
-        this.avatarParam.position.push(new THREE.Vector3(i - row / 2, 0, j - col / 2));
+        this.avatarParam.position.push(new THREE.Vector3(1.2 * (i - row / 2), 0, 1.2 * (j - col / 2)));
         this.avatarParam.scale.push(new THREE.Vector3(1, 1, 1));
         this.avatarParam.rotation.push(new THREE.Euler(0, -0.75 * Math.PI, 0));
         this.avatarParam.textureIndex.push(Math.floor(Math.random() * baseMapPromises.length));
