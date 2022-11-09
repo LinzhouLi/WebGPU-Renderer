@@ -84,34 +84,34 @@ class Main {
 
     // mesh
     {
-      const glb = await loader.loadGLTF('crowd/male.glb');
-      const mesh = glb.scene.children[2] as THREE.SkinnedMesh;
-      const material = mesh.material as THREE.MeshStandardMaterial;
-      material.map = await loader.loadTexture('crowd/business02.jpg');
-      material.normalMap = await loader.loadTexture('crowd/business02_normal.jpg');
+      // const glb = await loader.loadGLTF('crowd/male.glb');
+      // const mesh = glb.scene.children[2] as THREE.SkinnedMesh;
+      // const material = mesh.material as THREE.MeshStandardMaterial;
+      // material.map = await loader.loadTexture('crowd/business02.jpg');
+      // material.normalMap = await loader.loadTexture('crowd/business02_normal.jpg');
 
-      // calculate tangent
-      await MikkTSpace.ready;
-      const mikkTSpace = {
-        wasm: MikkTSpace.wasm,
-        isReady: MikkTSpace.isReady,
-        generateTangents: MikkTSpace.generateTangents
-      }
-      computeMikkTSpaceTangents(mesh.geometry, mikkTSpace);
+      // // calculate tangent
+      // await MikkTSpace.ready;
+      // const mikkTSpace = {
+      //   wasm: MikkTSpace.wasm,
+      //   isReady: MikkTSpace.isReady,
+      //   generateTangents: MikkTSpace.generateTangents
+      // }
+      // computeMikkTSpaceTangents(mesh.geometry, mikkTSpace);
 
-      // animation
-      this.mixer = new THREE.AnimationMixer(mesh);
-      mesh.rotation.set(0, -0.75 * Math.PI, 0)
+      // // animation
+      // this.mixer = new THREE.AnimationMixer(mesh);
+      // mesh.rotation.set(0, -0.75 * Math.PI, 0)
       // this.scene.add( mesh );
     }
 
     {
-      const glb = await loader.loadGLTF('genshin/ying.gltf');
-      const mesh = glb.scene.children[0].children[1];
-      const material = new THREE.MeshStandardMaterial();
-      material.map = mesh.material.map;
-      mesh.material = material;
-      mesh.rotation.set(0, -0.75 * Math.PI, 0)
+      // const glb = await loader.loadGLTF('genshin/ying.gltf');
+      // const mesh = glb.scene.children[0].children[1];
+      // const material = new THREE.MeshStandardMaterial();
+      // material.map = mesh.material.map;
+      // mesh.material = material;
+      // mesh.rotation.set(0, -0.75 * Math.PI, 0)
       // console.log(mesh);
       // this.scene.add(mesh);
     }
