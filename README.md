@@ -15,7 +15,7 @@ To do:
 - [x] Instanced Mesh
 - [x] Physically Based Shading
 - [x] ACES Tone Mapping
-- [ ] Image Based Lighting
+- [x] Image Based Lighting
 - [ ] Cascaded Shadow Map
 - [ ] SubSurface Scattering
 - [ ] GPU LoD

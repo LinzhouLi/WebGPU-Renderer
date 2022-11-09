@@ -67,7 +67,7 @@ class Mesh extends RenderableObject {
     const material = this.mesh.material as THREE.MeshStandardMaterial;
     
     let normalMat = new THREE.Matrix3().getNormalMatrix(this.mesh.matrixWorld).toArray();
-
+    
     this.resourceAttributes = ['transform', 'PBRMaterial'];
     this.resourceCPUData = {
       transform: new Float32Array([
@@ -95,6 +95,16 @@ class Mesh extends RenderableObject {
       this.resourceCPUData.normalMap = material.normalMap.source.data;
     }
 
+    if (!!material.metalnessMap) {
+      this.resourceAttributes.push('metalnessMap');
+      this.resourceCPUData.metalnessMap = material.metalnessMap.source.data;
+    }
+
+    if (!!material.roughnessMap) {
+      this.resourceAttributes.push('roughnessMap');
+      this.resourceCPUData.roughnessMap = material.roughnessMap.source.data;
+    }
+    
     this.resource = await resourceFactory.createResource(this.resourceAttributes, this.resourceCPUData);
     
   }

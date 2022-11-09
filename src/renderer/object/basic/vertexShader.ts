@@ -48,7 +48,7 @@ fn main(
 ) -> VertexOutput {
   
   let pos = vec4<f32>(position, 1.0);
-  let outNormal = transform.normalMat * normal;
+  let outNormal = normalize(transform.normalMat * normal);
   
   var output: VertexOutput;
   output.position = camera.projectionMat * camera.viewMat * transform.modelMat * pos;
@@ -58,7 +58,7 @@ fn main(
   output.shadowPos = light.viewProjectionMat * transform.modelMat * pos; // 在fragment shader中进行透视除法, 否则插值出错
 
 #if ${tangent}
-  let outTangent = transform.normalMat * tangent.xyz;
+  let outTangent = normalize(transform.normalMat * tangent.xyz);
   output.tangent = outTangent;
   output.biTangent = cross(outNormal, outTangent) * tangent.w; // tangent.w indicates the direction of biTangent
 #endif

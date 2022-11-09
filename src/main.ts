@@ -102,7 +102,7 @@ class Main {
       // animation
       this.mixer = new THREE.AnimationMixer(mesh);
       mesh.rotation.set(0, -0.75 * Math.PI, 0)
-      this.scene.add( mesh );
+      // this.scene.add( mesh );
     }
 
     {
@@ -114,6 +114,29 @@ class Main {
       mesh.rotation.set(0, -0.75 * Math.PI, 0)
       // console.log(mesh);
       // this.scene.add(mesh);
+    }
+
+    {
+      const glb = await loader.loadGLTF('Cerberus/Cerberus.glb');
+      const mesh = glb.scene.children[0];
+      const material = new THREE.MeshStandardMaterial();
+      material.map = await loader.loadTexture('Cerberus/baseColor.jpg');
+      material.normalMap = await loader.loadTexture('Cerberus/normal.jpg');
+      material.metalnessMap = await loader.loadTexture('Cerberus/metalness.jpg');
+      material.roughnessMap = await loader.loadTexture('Cerberus/roughness.jpg');
+      mesh.material = material;
+      mesh.position.set(0, 0.5, 0);
+
+      // calculate tangent
+      await MikkTSpace.ready;
+      const mikkTSpace = {
+        wasm: MikkTSpace.wasm,
+        isReady: MikkTSpace.isReady,
+        generateTangents: MikkTSpace.generateTangents
+      }
+      computeMikkTSpaceTangents(mesh.geometry, mikkTSpace);
+      // console.log(mesh);
+      this.scene.add(mesh);
     }
 
     {

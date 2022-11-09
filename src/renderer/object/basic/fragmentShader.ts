@@ -5,9 +5,8 @@ import {
 
 export function createFragmentShader(attributes: string[], type: string = 'phong') {
 
-  const normalMap = attributes.includes('tangent') && attributes.includes('normalMap');
-
   const baseMap = attributes.includes('baseMap');
+  const normalMap = attributes.includes('tangent') && attributes.includes('normalMap');
   const roughnessMap = attributes.includes('roughnessMap');
   const metalnessMap = attributes.includes('metalnessMap');
   const specularMap = attributes.includes('specularMap');
@@ -46,6 +45,12 @@ ${Definitions.PBRMaterial}
 #endif
 #if ${normalMap}
 @group(1) @binding(3) var normalMap: texture_2d<f32>;
+#endif
+#if ${metalnessMap}
+@group(1) @binding(4) var metalnessMap: texture_2d<f32>;
+#endif
+#if ${roughnessMap}
+@group(1) @binding(5) var roughnessMap: texture_2d<f32>;
 #endif
 
 ${Constants}
@@ -116,13 +121,13 @@ fn main(
   // material
   var localMaterial: PBRMaterial;
 #if ${roughnessMap}
-  localMaterial.roughness = textureSample(roughnessMap, linearSampler, fragUV).x * material.roughness;
+  localMaterial.roughness = textureSample(roughnessMap, linearSampler, fragUV).x;
 #else
   localMaterial.roughness = material.roughness;
 #endif
 
 #if ${metalnessMap}
-  localMaterial.metalness = textureSample(metalnessMap, linearSampler, fragUV).x * material.metalness;
+  localMaterial.metalness = textureSample(metalnessMap, linearSampler, fragUV).x;
 #else
   localMaterial.metalness = material.metalness;
 #endif
@@ -160,8 +165,8 @@ fn main(
     normal, viewDir, localMaterial
   );
 
-  var color: vec3<f32> = (0.7 * directShading * visibility + 0.7 * envShading);
-  // var color: vec3<f32> = envShading;
+  var color: vec3<f32> = (0.7 * directShading * visibility + 1.3 * envShading);
+  // var color: vec3<f32> = directShading;
 
   // tone mapping
   color = ACESToneMapping(color);

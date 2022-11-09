@@ -356,9 +356,10 @@ fn PBRShading(
   let G = G2_Smith_approx(alpha, NoL, NoV);
   let D = NDF_GGX(alpha, NoH);
   let F = Fresnel_Schlick(F0, VoH);
-  let dfg = bilinearSampleTexture(Lut, vec2<f32>(material.roughness, NoV)).xy;
-  let energyCompensation = 1.0 + F0 * (1 / dfg.y - 1.0);
-  let specular = G * D * F * energyCompensation;
+  // let dfg = bilinearSampleTexture(Lut, vec2<f32>(material.roughness, NoV)).xy;
+  // let energyCompensation = 1.0 + F0 * (1 / dfg.y - 1.0);
+  // let specular = G * D * F * energyCompensation;
+  let specular = G * D * F;
   let diffuse = material.albedo * (1.0 - F) * (1.0 - material.metalness) / PI;
 
   return PI * (specular + diffuse) * radiance * NoL;
