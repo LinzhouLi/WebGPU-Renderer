@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { computeMikkTSpaceTangents } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import * as MikkTSpace from 'three/examples/jsm/libs/mikktspace.module.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import Stats from 'stats.js/src/Stats.js';
 
 import { loader } from './loader';
 import { Renderer } from './renderer/renderer';
@@ -16,19 +17,26 @@ class Main {
   clock: THREE.Clock;
   scene: THREE.Scene;
   crowdManager: CrowdManager;
+  stats: Stats;
 
   constructor() {
 
     this.canvas = document.querySelector('canvas');
     this.renderer = new Renderer(this.canvas);
+    this.stats = new Stats();
+    this.stats.showPanel( 0 ); // 0: fps, 1: ms, 2: mb, 3+: custom
+    document.body.appendChild( this.stats.dom );
+
 
   }
 
   start() {
     
     const render = () => {
+      this.stats.begin();
       this.renderer.update();
       this.renderer.draw();
+      this.stats.end();
       requestAnimationFrame(render);
     }
 
