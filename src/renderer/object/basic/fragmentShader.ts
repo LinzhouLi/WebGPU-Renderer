@@ -133,13 +133,13 @@ fn main(
 #endif
   
 #if ${baseMap} // blbedo
-  localMaterial.albedo = textureSample(baseMap, linearSampler, fragUV).xyz * material.albedo;
+  localMaterial.albedo = textureSample(baseMap, linearSampler, fragUV).xyz;
 #else
   localMaterial.albedo = material.albedo;
 #endif
 
 #if ${specularMap}
-  localMaterial.specular = textureSample(specularMap, linearSampler, fragUV).xyz * material.specular;
+  localMaterial.specular = textureSample(specularMap, linearSampler, fragUV).xyz;
 #else
   localMaterial.specular = material.specular;
 #endif
