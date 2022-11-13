@@ -1,10 +1,26 @@
 import { wgsl } from '../../../3rd-party/wgsl-preprocessor';
 import { Definitions } from '../../resource/shaderChunk';
 
-export function createVertexShader(attributes: string[], pass: ('render' | 'shadow' | 'skybox') = 'render') {
+export function vertexShaderFactory(
+  slotAttributes: string[],
+  bindingAttributes: string[][], 
+  pass: ('render' | 'shadow')
+) {
 
-  const tangent = attributes.includes('tangent') && attributes.includes('normalMap');
-  const pointLight = attributes.includes('pointLight');
+  let slotLocations = { }, bindingIndices = { };
+  slotAttributes.forEach( (slotAttribute, slotIndex) => 
+    slotLocations[slotAttribute] = `@location(${slotIndex})`
+  );
+  bindingAttributes.forEach(
+    (group, groupIndex) => group.forEach(
+      (binding, bindingIndex) => bindingIndices[binding] = `@group(${groupIndex}) @binding(${bindingIndex})`
+    )
+  );
+
+  const tangent = slotLocations['tangent'] && bindingIndices['normalMap'];
+  const skinned = slotLocations['skinIndex'] && slotLocations['skinWeight'] && bindingIndices['boneMatrices'];
+  const pointLight = bindingIndices['pointLight'];
+  const directionalLight = bindingIndices['directionalLight'];
 
   let code: string;
 
@@ -16,14 +32,18 @@ ${Definitions.PointLight}
 ${Definitions.DirectionalLight}
 ${Definitions.Transform}
 
-@group(0) @binding(0) var<uniform> camera: Camera;
+${bindingIndices['camera']} var<uniform> camera: Camera;
 #if ${pointLight}
-@group(0) @binding(1) var<uniform> light: PointLight;
-#else
-@group(0) @binding(1) var<uniform> light: DirectionalLight;
+${bindingIndices['pointLight']} var<uniform> light: PointLight;
+#endif
+#if ${directionalLight}
+${bindingIndices['directionalLight']} var<uniform> light: DirectionalLight;
 #endif
 
-@group(1) @binding(0) var<uniform> transform : Transform;
+${bindingIndices['transform']} var<uniform> transform : Transform;
+#if ${skinned}
+${bindingIndices['boneMatrices']} var<storage, read> boneMatrices : array<mat4x4<f32>>;
+#endif
 
 struct VertexOutput {
   @builtin(position) position: vec4<f32>,
@@ -39,11 +59,15 @@ struct VertexOutput {
 
 @vertex
 fn main(
-  @location(0) position : vec3<f32>,
-  @location(1) normal : vec3<f32>,
-  @location(2) uv : vec2<f32>,
+  ${slotLocations['position']} position : vec3<f32>,
+  ${slotLocations['normal']} normal : vec3<f32>,
+  ${slotLocations['uv']} uv : vec2<f32>,
+#if ${skinned}
+  ${slotLocations['skinIndex']} skinIndex: vec4<u32>,
+  ${slotLocations['skinWeight']} skinWeight: vec4<f32>,
+#endif
 #if ${tangent}
-  @location(3) tangent: vec4<f32>
+  ${slotLocations['tangent']} tangent: vec4<f32>
 #endif
 ) -> VertexOutput {
   
@@ -90,14 +114,17 @@ struct Transform {
 };
 
 #if ${pointLight}
-@group(0) @binding(0) var<uniform> light: PointLight;
-#else
-@group(0) @binding(0) var<uniform> light: DirectionalLight;
+${bindingIndices['pointLight']} var<uniform> light: PointLight;
 #endif
-@group(0) @binding(1) var<uniform> transform: Transform;
+#if ${directionalLight}
+${bindingIndices['directionalLight']} var<uniform> light: DirectionalLight;
+#endif
+${bindingIndices['transform']} var<uniform> transform: Transform;
 
 @vertex
-fn main( @location(0) position : vec3<f32>, ) -> @builtin(position) vec4<f32> {
+fn main( 
+  ${slotLocations['position']} position : vec3<f32>, 
+) -> @builtin(position) vec4<f32> {
   
   let pos = vec4<f32>(position, 1.0);
   return light.viewProjectionMat * transform.modelMat * pos;

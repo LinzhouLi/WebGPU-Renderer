@@ -227,7 +227,7 @@ const ResourceFormat = {
   },
   boneMatrices: {
     type: 'buffer' as ResourceType,
-    label: 'Skinning Matrices (mat3x3)',
+    label: 'Skinning Matrices (mat4x4)',
     visibility: GPUShaderStage.VERTEX,
     usage:  GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
     layout: { 

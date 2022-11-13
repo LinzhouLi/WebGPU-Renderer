@@ -3,6 +3,7 @@ import { device, canvasFormat } from './renderer';
 import { GlobalObject } from './object/global';
 import { RenderableObject } from './object/renderableObject';
 import { Mesh } from './object/basic/mesh';
+import { SkinnedMesh } from './object/basic/skinnedMesh';
 import { Skybox } from './object/skybox';
 import { MultiBounceBRDF } from './precompute/multiBounceBRDF';
 import { IBL } from './precompute/IBL';
@@ -126,6 +127,9 @@ class RenderController {
           this.light = obj;
         else 
           throw new Error('More Than One Light');
+      } // @ts-ignore
+      else if (obj.isSkinnedMesh) {
+        this.objectList.push(new SkinnedMesh(obj as THREE.SkinnedMesh));
       } // @ts-ignore
       else if (obj.isMesh) {
         this.objectList.push(new Mesh(obj as THREE.Mesh));

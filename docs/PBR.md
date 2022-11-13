@@ -8,11 +8,11 @@
 
 在物理世界中，光主要会与三种物质交互，他们产生的光学现象构成了人们眼中观察到的世界。
 
-**粒子**（Particles）主要指气体，分子在其中的位置分布是随机且不相关的。当粒子为大气分子时，光在其中传播会发生瑞利散射（Rayleigh Scattering），而当粒子为固体时，发生的散射叫做丁达尔散射（Tyndall Scattering）。
+**粒子**（Particles）主要指气体，分子在其中的位置分布是随机且不相关的。当粒子为大气分子时，光在其中传播会发生**瑞利散射**（Rayleigh Scattering），而当粒子为固体时，发生的散射叫做**丁达尔散射**（Tyndall Scattering）。
 
-**介质**（Media）主要匀质（Homogeneous Medium），光在其中传播会发生吸收和散射，吸收会决定介质的颜色，散射会决定介质的浑浊程度。
+**介质**（Media）主要匀质（Homogeneous Medium），光在其中传播会发生**吸收**和**散射**，吸收会决定介质的颜色，散射会决定介质的浑浊程度。
 
-**表面**（Surfaces）即各种物体表面，光与其交互会发生反射和折射现象。而折射光进入介质中，又会进一步与介质进行交互。
+**表面**（Surfaces）即各种物体表面，光与其交互会发生**反射**和**折射**现象。而折射光进入介质中，又会进一步与介质进行交互。
 
 <img src="img/1.jpg" width="70%">
 
@@ -50,7 +50,7 @@ L_o(\textbf p, \textbf v) =
 L_e(\textbf p, \textbf v) +
 \int_{\textbf l \in \Omega} f(\textbf l, \textbf v) L_i(\textbf p, \textbf l)(\textbf n \cdot \textbf l)^+ \, \mathrm d \textbf l
 $$
-等式左边为表面位置 $$\textbf p$$ 在观察方向 $$\textbf v$$ 的辐亮度（Radiance，单位面积单位立体角的辐射通量） 。等式右边第一项为 $$\textbf p$$ 点自发光的辐亮度贡献，第二项为各个方向 $$\textbf l$$ 光照在表面进行反射散射等作用带来的辐亮度贡献，$$\Omega$$ 需要积分的半球面。
+等式左边为表面位置 $$\textbf p$$ 在观察方向 $$\textbf v$$ 的辐亮度（Radiance，单位面积单位立体角的辐射通量） 。等式右边第一项为 $$\textbf p$$ 点自发光的辐亮度贡献，第二项为各个方向 $$\textbf l$$ 光照在表面进行反射散射等作用带来的辐亮度贡献，$$\Omega$$ 为需要积分的半球面。
 
 #### BRDF
 
@@ -59,7 +59,7 @@ $$
 L_o(\textbf p, \textbf v) = 
 \int_{\textbf l \in \Omega} f(\textbf l, \textbf v) L_i(\textbf p, \textbf l)(\textbf n \cdot \textbf l)^+ \, \mathrm d \textbf l
 $$
-方程中 $$L_i(\textbf p, \textbf l)$$ 为 $$\textbf l$$ 方向入射辐亮度，$$(\textbf n \cdot \textbf l)^+$$ 为入射方向 $$\textbf l$$ 与表面法向 $$\textbf n$$ 夹角余弦值，它描述了入射角带来的表面接收到的辐照度（Irradiance，单位面积接收到的辐射通量）衰减。可以类比于太阳光直射赤道时，维度越高，地球上单位面积接收到的辐射通量越少。
+方程中 $$L_i(\textbf p, \textbf l)$$ 为 $$\textbf l$$ 方向入射光辐亮度，$$(\textbf n \cdot \textbf l)^+$$ 为入射方向 $$\textbf l$$ 与表面法向 $$\textbf n$$ 夹角余弦值，它描述了入射角带来的表面接收到的辐照度（Irradiance，单位面积接收到的辐射通量）衰减。可以类比于太阳光直射赤道时，维度越高，地球上单位面积接收到的辐射通量越少。
 
 方程中 $$f(\textbf l, \textbf v)$$ 定义为**出射辐亮度与入射辐照度的比值**，衡量了物体表面对光线的作用，描述了物体的材质。它叫作**双向反射分布函数**（Bidirectional Reflectance Distribution Function, BRDF）。
 $$

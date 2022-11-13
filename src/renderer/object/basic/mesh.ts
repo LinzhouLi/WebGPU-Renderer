@@ -1,37 +1,38 @@
 import * as THREE from 'three';
 import { device, canvasFormat } from '../../renderer';
 import type { TypedArray } from '../../base';
-import {
-  vertexBufferFactory,
-  resourceFactory,
-  bindGroupFactory
-} from '../../base';
+import { vertexBufferFactory, resourceFactory, bindGroupFactory } from '../../base';
 import { RenderableObject } from '../renderableObject';
-import { createVertexShader } from './vertexShader';
-import { createFragmentShader } from './fragmentShader';
+import { vertexShaderFactory } from './vertexShader';
+import { fragmentShaderFactory } from './fragmentShader';
 
 const defaultSpecular = new THREE.Vector3(0.5, 0.5, 0.5);
 
 class Mesh extends RenderableObject {
 
-  private mesh: THREE.Mesh;
+  protected mesh: THREE.Mesh;
 
-  private renderPipeline: GPURenderPipeline;
-  private shadowPipeline: GPURenderPipeline;
+  protected renderPipeline: GPURenderPipeline;
+  protected shadowPipeline: GPURenderPipeline;
 
-  private vertexCount: number;
-  private vertexBufferAttributes: string[]; // resource name
-  private vertexBufferData: { [x: string]: TypedArray }; // resource in CPU
-  private vertexBuffers: { [x: string]: GPUBuffer }; // resource in GPU
+  protected vertexCount: number;
+  protected vertexBufferAttributes: string[]; // resource name
+  protected vertexBufferData: { [x: string]: TypedArray }; // resource in CPU
+  protected vertexBuffers: { [x: string]: GPUBuffer }; // resource in GPU
 
-  private resourceAttributes: string[]; // resource name
-  private resourceCPUData: { [x: string]: TypedArray | ImageBitmap | ImageBitmapSource }; // resource in CPU
-  private resource: { [x: string]: GPUBuffer | GPUTexture | GPUSampler }; // resource in GPU
+  protected resourceAttributes: string[]; // resource name
+  protected resourceCPUData: { [x: string]: TypedArray | ImageBitmap | ImageBitmapSource }; // resource in CPU
+  protected resource: { [x: string]: GPUBuffer | GPUTexture | GPUSampler }; // resource in GPU
+
+  protected createVertexShader: (slotAttributes: string[], attributes: string[][], pass: ('render' | 'shadow')) => string;
+  protected createFragmentShader: (slotAttributes: string[], attributes: string[][], type: ('phong' | 'PBR')) => string;
 
   constructor(mesh: THREE.Mesh) {
 
     super();
     this.mesh = mesh;
+    this.createVertexShader = vertexShaderFactory;
+    this.createFragmentShader = fragmentShaderFactory;
     
   }
 
@@ -44,6 +45,11 @@ class Mesh extends RenderableObject {
       uv: this.mesh.geometry.attributes.uv.array as TypedArray,
     };
 
+    if (!!this.mesh.geometry.attributes.tangent) {
+      this.vertexBufferAttributes.push('tangent');
+      this.vertexBufferData.tangent = this.mesh.geometry.attributes.tangent.array as TypedArray;
+    }
+
     if (!!this.mesh.geometry.index) {
       this.vertexBufferAttributes.push('index');
       this.vertexBufferData.index = this.mesh.geometry.index.array as TypedArray;
@@ -51,11 +57,6 @@ class Mesh extends RenderableObject {
     }
     else {
       this.vertexCount = this.mesh.geometry.attributes.position.count;
-    }
-
-    if (!!this.mesh.geometry.attributes.tangent) {
-      this.vertexBufferAttributes.push('tangent');
-      this.vertexBufferData.tangent = this.mesh.geometry.attributes.tangent.array as TypedArray;
     }
 
     this.vertexBuffers = vertexBufferFactory.createResource(this.vertexBufferAttributes, this.vertexBufferData);
@@ -115,20 +116,16 @@ class Mesh extends RenderableObject {
   ) {
 
     const lightType = globalResource.pointLight ? 'pointLight' : 'directionalLight';
+    const globalResourceAttributes = [ 
+      'camera', lightType,
+      'shadowMap', 'envMap', 'diffuseEnvMap',
+      'compareSampler', 'linearSampler',
+      'Lut'
+    ];
     
     const vertexLayout = vertexBufferFactory.createLayout(this.vertexBufferAttributes);
-    const gloablBind = bindGroupFactory.create(
-      [ 
-        'camera', lightType,
-        'shadowMap', 'envMap', 'diffuseEnvMap',
-        'compareSampler', 'linearSampler',
-        'Lut'
-      ],
-      globalResource
-    );
-    const localBind = bindGroupFactory.create(
-      this.resourceAttributes, this.resource
-    );
+    const gloablBind = bindGroupFactory.create( globalResourceAttributes, globalResource );
+    const localBind = bindGroupFactory.create( this.resourceAttributes, this.resource );
     
     this.renderPipeline = await device.createRenderPipelineAsync({
       label: 'Render Pipeline',
@@ -137,14 +134,14 @@ class Mesh extends RenderableObject {
       }),
       vertex: {
         module: device.createShaderModule({ code: 
-          createVertexShader([...this.vertexBufferAttributes, ...this.resourceAttributes], 'render')
+          this.createVertexShader(this.vertexBufferAttributes, [globalResourceAttributes, this.resourceAttributes], 'render')
         }),
         entryPoint: 'main',
         buffers: vertexLayout
       },
       fragment: {
         module: device.createShaderModule({ code: 
-          createFragmentShader([...this.vertexBufferAttributes, ...this.resourceAttributes], 'phong')
+          this.createFragmentShader(this.vertexBufferAttributes, [globalResourceAttributes, this.resourceAttributes], 'PBR')
         }),
         entryPoint: 'main',
         targets: [{ format: canvasFormat }]
@@ -195,21 +192,19 @@ class Mesh extends RenderableObject {
     if (this.vertexBufferAttributes.includes('index')) vertexBufferAttributs.push('index');
 
     const lightType = globalResource.pointLight ? 'pointLight' : 'directionalLight';
+    const resourceAttributes = [lightType, 'transform'];
 
     const vertexLayout = vertexBufferFactory.createLayout(vertexBufferAttributs);
-    const { layout, group } = bindGroupFactory.create(
-      [ lightType, 'transform' ],
-      { ...globalResource, ...this.resource }
-    );
+    const Bind = bindGroupFactory.create( resourceAttributes, {...globalResource, ...this.resource} );
     
     this.shadowPipeline = await device.createRenderPipelineAsync({
       label: 'Shadow Pipeline',
       layout: device.createPipelineLayout({ 
-        bindGroupLayouts: [layout] 
+        bindGroupLayouts: [Bind.layout] 
       }),
       vertex: {
         module: device.createShaderModule({ code: 
-          createVertexShader([...this.vertexBufferAttributes, ...this.resourceAttributes], 'shadow')
+          this.createVertexShader(vertexBufferAttributs, [resourceAttributes], 'shadow')
         }),
         entryPoint: 'main',
         buffers: vertexLayout
@@ -242,7 +237,7 @@ class Mesh extends RenderableObject {
     }
 
     // set bind group
-    bundleEncoder.setBindGroup(0, group);
+    bundleEncoder.setBindGroup(0, Bind.group);
     
     // draw
     if (indexed) bundleEncoder.drawIndexed(this.vertexCount);

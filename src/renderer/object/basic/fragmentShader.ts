@@ -3,19 +3,30 @@ import {
   Definitions, Constants, ToolFunction, Shadow, PBR, ACESToneMapping
 } from '../../resource/shaderChunk';
 
-export function createFragmentShader(attributes: string[], type: string = 'phong') {
+export function fragmentShaderFactory(
+  slotAttributes: string[],
+  bindingAttributes: string[][], 
+  type: ('phong' | 'PBR') = 'PBR'
+) {
 
-  const baseMap = attributes.includes('baseMap');
-  const normalMap = attributes.includes('tangent') && attributes.includes('normalMap');
-  const roughnessMap = attributes.includes('roughnessMap');
-  const metalnessMap = attributes.includes('metalnessMap');
-  const specularMap = attributes.includes('specularMap');
-
-  const pointLight = attributes.includes('pointLight');
+  let bindingIndices = { };
+  bindingAttributes.forEach(
+    (group, groupIndex) => group.forEach(
+      (binding, bindingIndex) => bindingIndices[binding] = `@group(${groupIndex}) @binding(${bindingIndex})`
+    )
+  );
+  
+  const baseMap = bindingIndices['baseMap'];
+  const normalMap = slotAttributes.includes('tangent') && bindingIndices['normalMap'];
+  const roughnessMap = bindingIndices['roughnessMap'];
+  const metalnessMap = bindingIndices['metalnessMap'];
+  const specularMap = bindingIndices['specularMap'];
+  const pointLight = bindingIndices['pointLight'];
+  const directionalLight = bindingIndices['directionalLight'];
 
   let code: string;
 
-  if (type === 'phong') {
+  if (type === 'PBR') {
     code = wgsl
 /* wgsl */`
 ${Definitions.Camera}
@@ -23,34 +34,35 @@ ${Definitions.PointLight}
 ${Definitions.DirectionalLight}
 ${Definitions.PBRMaterial}
 
-@group(0) @binding(0) var<uniform> camera: Camera;
+${bindingIndices['camera']} var<uniform> camera: Camera;
 #if ${pointLight}
-@group(0) @binding(1) var<uniform> light: PointLight;
-#else
-@group(0) @binding(1) var<uniform> light: DirectionalLight;
+${bindingIndices['pointLight']} var<uniform> light: PointLight;
+#endif
+#if ${directionalLight}
+${bindingIndices['directionalLight']} var<uniform> light: DirectionalLight;
 #endif
 
-@group(0) @binding(2) var shadowMap: texture_depth_2d;
-@group(0) @binding(3) var envMap: texture_cube<f32>;
-@group(0) @binding(4) var diffuseEnvMap: texture_cube<f32>;
+${bindingIndices['shadowMap']} var shadowMap: texture_depth_2d;
+${bindingIndices['envMap']} var envMap: texture_cube<f32>;
+${bindingIndices['diffuseEnvMap']} var diffuseEnvMap: texture_cube<f32>;
 
-@group(0) @binding(5) var compareSampler: sampler_comparison;
-@group(0) @binding(6) var linearSampler: sampler;
+${bindingIndices['compareSampler']} var compareSampler: sampler_comparison;
+${bindingIndices['linearSampler']} var linearSampler: sampler;
 
-@group(0) @binding(7) var Lut: texture_2d<f32>;
+${bindingIndices['Lut']} var Lut: texture_2d<f32>;
 
-@group(1) @binding(1) var<uniform> material: PBRMaterial;
+${bindingIndices['PBRMaterial']} var<uniform> material: PBRMaterial;
 #if ${baseMap}
-@group(1) @binding(2) var baseMap: texture_2d<f32>;
+${bindingIndices['baseMap']} var baseMap: texture_2d<f32>;
 #endif
 #if ${normalMap}
-@group(1) @binding(3) var normalMap: texture_2d<f32>;
+${bindingIndices['normalMap']} var normalMap: texture_2d<f32>;
 #endif
 #if ${metalnessMap}
-@group(1) @binding(4) var metalnessMap: texture_2d<f32>;
+${bindingIndices['metalnessMap']} var metalnessMap: texture_2d<f32>;
 #endif
 #if ${roughnessMap}
-@group(1) @binding(5) var roughnessMap: texture_2d<f32>;
+${bindingIndices['roughnessMap']} var roughnessMap: texture_2d<f32>;
 #endif
 
 ${Constants}
@@ -161,7 +173,7 @@ fn main(
 }
 `
   }
-
+  
   return code;
   
 }
