@@ -285,9 +285,18 @@ const Shadow = { hardShadow, PCF };
 
 const NDF = /* wgsl */`
 fn NDF_GGX(alpha: f32, NoH: f32) -> f32 { // normal distribution function (GGX)
-  let alpha2 = alpha * alpha;
-  let d = NoH * (NoH * alpha2 - NoH) + 1.0;
-  return alpha2 / (PI * d * d);
+  // let alpha2 = alpha * alpha;
+  // let d = NoH * (NoH * alpha2 - NoH) + 1.0;
+  // return alpha2 / (PI * d * d);
+  let a2     = alpha*alpha;
+  let NdotH  = max(NoH, 0.0);
+  let NdotH2 = NdotH*NdotH;
+
+  let num   = a2;
+  var denom = (NdotH2 * (a2 - 1.0) + 1.0);
+  denom = PI * denom * denom;
+
+  return num / denom;
 }
 `;
 
@@ -337,7 +346,7 @@ fn multiBounce(F0: vec3<f32>, roughness: f32, NoL: f32, NoV: f32) -> vec3<f32> {
 }
 `;
 
-const Shading = /* wgsl */`
+const PBRShading = /* wgsl */`
 fn PBRShading(
   N: vec3<f32>, V: vec3<f32>, L: vec3<f32>, 
   material: PBRMaterial, 
@@ -356,10 +365,9 @@ fn PBRShading(
   let G = G2_Smith_approx(alpha, NoL, NoV);
   let D = NDF_GGX(alpha, NoH);
   let F = Fresnel_Schlick(F0, VoH);
-  // let dfg = bilinearSampleTexture(Lut, vec2<f32>(material.roughness, NoV)).xy;
-  // let energyCompensation = 1.0 + F0 * (1 / dfg.y - 1.0);
-  // let specular = G * D * F * energyCompensation;
-  let specular = G * D * F;
+  let dfg = bilinearSampleTexture(Lut, vec2<f32>(material.roughness, NoV)).xy;
+  let energyCompensation = 1.0 + F0 * (1 / dfg.y - 1.0);
+  let specular = G * D * F * energyCompensation;
   let diffuse = material.albedo * (1.0 - F) * (1.0 - material.metalness) / PI;
 
   return PI * (specular + diffuse) * radiance * NoL;
@@ -367,7 +375,7 @@ fn PBRShading(
 }
 `;
 
-const EnvironmentShading = /* wgsl */`
+const PBREnvShading = /* wgsl */`
 fn PBREnvShading(
   N: vec3<f32>, V: vec3<f32>, 
   material: PBRMaterial
@@ -391,7 +399,44 @@ fn PBREnvShading(
 }
 `;
 
-const PBR = { NDF, Geometry, Fresnel, MultiBounce, Shading, EnvironmentShading };
+const PBR = { NDF, Geometry, Fresnel, MultiBounce, PBRShading, PBREnvShading };
+
+
+// Blinn Phong
+
+const PhongShading = /* wgsl */`
+fn PhongShading(
+  N: vec3<f32>, V: vec3<f32>, L: vec3<f32>, 
+  material: PBRMaterial, 
+  radiance: vec3<f32>
+) -> vec3<f32> {
+
+  let H = normalize(V + L);
+
+  let diffuse = saturate(dot(N, L));
+  let alpha = exp2(10.0 - 10.0 * material.roughness);
+  let specular = pow(saturate(dot(N, H)), alpha);
+
+  return (diffuse + specular) * radiance * material.albedo;
+
+}
+`
+
+const PhongEnvShading = /* wgsl */`
+fn PhongEnvShading(
+  N: vec3<f32>, V: vec3<f32>,
+  material: PBRMaterial
+) -> vec3<f32> {
+
+  let ambient = 0.2;
+  // let irradiance = textureSample(diffuseEnvMap, linearSampler, N).xyz;
+
+  return ambient * material.albedo;
+
+}
+`
+
+const Phong = { PhongShading, PhongEnvShading };
 
 
 // tone mapping
@@ -428,5 +473,6 @@ fn ACESToneMapping(color: vec3<f32>) -> vec3<f32> {
 export { 
   Definitions, Constants, 
   ToolFunction, Sampling,
-  Shadow, PBR, ACESToneMapping 
+  Shadow, PBR, Phong,
+  ACESToneMapping 
 };

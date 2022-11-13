@@ -104,7 +104,7 @@ class Mesh extends RenderableObject {
       this.resourceAttributes.push('roughnessMap');
       this.resourceCPUData.roughnessMap = material.roughnessMap.source.data;
     }
-    console.log(this.mesh, this.resourceAttributes)
+    
     this.resource = await resourceFactory.createResource(this.resourceAttributes, this.resourceCPUData);
     
   }

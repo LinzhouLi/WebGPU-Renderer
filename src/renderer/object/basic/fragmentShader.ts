@@ -65,33 +65,10 @@ ${Shadow.PCF}
 ${PBR.NDF}
 ${PBR.Geometry}
 ${PBR.Fresnel}
-${PBR.Shading}
-${PBR.EnvironmentShading}
+${PBR.PBRShading}
+${PBR.PBREnvShading}
 
 ${ACESToneMapping}
-
-
-fn blinnPhong(position: vec3<f32>, normal: vec3<f32>, albedo: vec3<f32>) -> vec3<f32> {
-
-#if ${pointLight}
-  let lightDir = normalize(light.position - position);
-#else
-  let lightDir = normalize(light.direction);
-#endif
-  let viewDir = normalize(camera.position - position);
-  let halfVec = normalize(lightDir + viewDir);
-
-  let ambient = albedo * light.color * 0.2;
-
-  let diff = max(dot(lightDir, normal), 0.0);
-  let diffuse = diff * light.color * albedo;
-
-  let spec = pow(max(dot(normal, halfVec), 0.0), 32);
-  let specular = spec * light.color * albedo;
-
-  return ambient + diffuse + specular;
-
-}
 
 
 @fragment
@@ -151,12 +128,19 @@ fn main(
   // let visibility = hardShadow(shadowUV, shadowDepth, shadowMap, compareSampler);
   let visibility = PCF(shadowUV, shadowDepth, 5.0, shadowMap, compareSampler);
 
-  // Blinn-Phong shading
-  // let shadingColor = blinnPhong(fragPosition, normal, albedo);
-
-  // PBR shading
   let viewDir = normalize(camera.position - fragPosition);
   let lightDir = normalize(light.direction);
+
+  // Blinn-Phong shading
+  // let directShading = PhongShading(
+  //   normal, viewDir, lightDir,
+  //   localMaterial, light.color
+  // );
+  // let envShading = PhongEnvShading(
+  //   normal, viewDir, localMaterial
+  // );
+
+  // PBR shading
   let directShading = PBRShading(
     normal, viewDir, lightDir,
     localMaterial, light.color
@@ -165,7 +149,7 @@ fn main(
     normal, viewDir, localMaterial
   );
 
-  var color: vec3<f32> = (0.7 * directShading * visibility + 1.3 * envShading);
+  var color: vec3<f32> = (1.3 * directShading * visibility + 0.7 * envShading);
   // var color: vec3<f32> = directShading;
 
   // tone mapping
