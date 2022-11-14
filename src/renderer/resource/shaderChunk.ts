@@ -470,9 +470,43 @@ fn ACESToneMapping(color: vec3<f32>) -> vec3<f32> {
 `;
 
 
+// animation
+
+const SingleSkinning = /* wgsl */`
+fn singleSkinning(
+  position: vec4<f32>, 
+  skinIndex: u32,
+  skinWeight: f32
+) -> vec4<f32> {
+  if (skinWeight > 0.0) {
+    return skinWeight * boneMatrices[skinIndex] * position;
+  }
+  else {
+    return vec4<f32>(0.0);
+  }
+}
+`;
+
+const BlendSkinning = /* wgsl */`
+fn blendSkinning(
+  position: vec4<f32>,
+  skinIndex: vec4<u32>,
+  skinWeight: vec4<f32>
+) -> vec4<f32> {
+  var result = singleSkinning(position, skinIndex.x, skinWeight.x);
+  result = result + singleSkinning(position, skinIndex.y, skinWeight.y);
+  result = result + singleSkinning(position, skinIndex.z, skinWeight.z);
+  result = result + singleSkinning(position, skinIndex.w, skinWeight.w);
+  return result;
+}
+`;
+
+const Skinning = { SingleSkinning, BlendSkinning };
+
+
 export { 
   Definitions, Constants, 
   ToolFunction, Sampling,
-  Shadow, PBR, Phong,
-  ACESToneMapping 
+  Shadow, PBR, Phong, ACESToneMapping,
+  Skinning
 };

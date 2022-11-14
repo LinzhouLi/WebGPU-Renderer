@@ -6,15 +6,19 @@ import { vertexShaderFactory } from './vertexShader';
 import { fragmentShaderFactory } from './fragmentShader';
 import { Mesh } from './mesh';
 
+const defaultSpecular = new THREE.Vector3(0.5, 0.5, 0.5);
+
 class SkinnedMesh extends Mesh {
 
   protected declare mesh: THREE.SkinnedMesh;
+  protected boneCount: number;
 
   constructor(mesh: THREE.SkinnedMesh) {
 
     super(mesh);
     this.createVertexShader = vertexShaderFactory;
     this.createFragmentShader = fragmentShaderFactory;
+    this.boneCount = this.mesh.skeleton.bones.length;
 
   }
 
@@ -61,7 +65,7 @@ class SkinnedMesh extends Mesh {
         ...normalMat.slice(3, 6), 0,          // see https://gpuweb.github.io/gpuweb/wgsl/#alignment
         ...normalMat.slice(6, 9), 0
       ]),
-      boneMatrices: this.mesh.skeleton.boneMatrices,
+      boneMatrices: new Float32Array(this.boneCount * 16),
       PBRMaterial: new Float32Array([
         material.roughness,
         material.metalness, 
@@ -154,6 +158,30 @@ class SkinnedMesh extends Mesh {
     // draw
     if (indexed) bundleEncoder.drawIndexed(this.vertexCount);
     else bundleEncoder.draw(this.vertexCount);
+
+  }
+
+  public override update() {
+
+    // transform
+    let normalMat = new THREE.Matrix3().getNormalMatrix(this.mesh.matrixWorld).toArray();
+    (this.resourceCPUData.transform as TypedArray).set([
+      ...this.mesh.matrixWorld.toArray(),
+      ...normalMat.slice(0, 3), 0,
+      ...normalMat.slice(3, 6), 0,
+      ...normalMat.slice(6, 9), 0
+    ]);
+    device.queue.writeBuffer( 
+      this.resource.transform as GPUBuffer,
+      0, this.resourceCPUData.transform as TypedArray
+    );
+
+    // boneMatrix
+    this.mesh.skeleton.update();
+    device.queue.writeBuffer( 
+      this.resource.boneMatrices as GPUBuffer,
+      0, this.mesh.skeleton.boneMatrices as TypedArray, 0, this.boneCount * 16
+    );
 
   }
 

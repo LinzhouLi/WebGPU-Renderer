@@ -16,13 +16,13 @@ export function fragmentShaderFactory(
     )
   );
   
-  const baseMap = bindingIndices['baseMap'];
-  const normalMap = slotAttributes.includes('tangent') && bindingIndices['normalMap'];
-  const roughnessMap = bindingIndices['roughnessMap'];
-  const metalnessMap = bindingIndices['metalnessMap'];
-  const specularMap = bindingIndices['specularMap'];
-  const pointLight = bindingIndices['pointLight'];
-  const directionalLight = bindingIndices['directionalLight'];
+  const baseMap = !!bindingIndices['baseMap'];
+  const normalMap = slotAttributes.includes('tangent') && !!bindingIndices['normalMap'];
+  const roughnessMap = !!bindingIndices['roughnessMap'];
+  const metalnessMap = !!bindingIndices['metalnessMap'];
+  const specularMap = !!bindingIndices['specularMap'];
+  const pointLight = !!bindingIndices['pointLight'];
+  const directionalLight = !!bindingIndices['directionalLight'];
 
   let code: string;
 
@@ -86,13 +86,13 @@ ${ACESToneMapping}
 @fragment
 fn main(
   @builtin(position) position: vec4<f32>,
-  @location(0) fragPosition: vec3<f32>,
-  @location(1) fragNormal: vec3<f32>,
-  @location(2) fragUV: vec2<f32>,
-  @location(3) shadowPos: vec4<f32>,
+  @location(0) @interpolate(linear, center) fragPosition: vec3<f32>,
+  @location(1) @interpolate(linear, center) fragNormal: vec3<f32>,
+  @location(2) @interpolate(linear, center) fragUV: vec2<f32>,
+  @location(3) @interpolate(perspective, center) shadowPos: vec4<f32>,
 #if ${normalMap}
-  @location(4) tangent: vec3<f32>,
-  @location(5) biTangent: vec3<f32>
+  @location(4) @interpolate(linear, center) tangent: vec3<f32>,
+  @location(5) @interpolate(linear, center) biTangent: vec3<f32>
 #endif
 ) -> @location(0) vec4<f32> {
 
@@ -161,8 +161,7 @@ fn main(
     normal, viewDir, localMaterial
   );
 
-  var color: vec3<f32> = (1.3 * directShading * visibility + 0.7 * envShading);
-  // var color: vec3<f32> = directShading;
+  var color: vec3<f32> = (0.7 * directShading * visibility + 0.3 * envShading);
 
   // tone mapping
   color = ACESToneMapping(color);

@@ -44,9 +44,6 @@ class Renderer {
     this.context = context;
 
     // size
-    const devicePixelRatio = window.devicePixelRatio || 1;
-    this.canvas.width = this.canvas.clientWidth * devicePixelRatio;
-    this.canvas.height = this.canvas.clientHeight * devicePixelRatio;
     this.size = { width: this.canvas.width, height: this.canvas.height };
 
     // format
