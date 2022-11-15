@@ -57,9 +57,11 @@ class SkinnedMesh extends Mesh {
     
     let normalMat = new THREE.Matrix3().getNormalMatrix(this.mesh.matrixWorld).toArray();
     
-    this.resourceAttributes = ['transform', 'boneMatrices', 'PBRMaterial'];
+    this.resourceAttributes = ['skinnedTransform', 'boneMatrices', 'PBRMaterial'];
     this.resourceCPUData = {
-      transform: new Float32Array([
+      skinnedTransform: new Float32Array([
+        ...this.mesh.bindMatrix.toArray(),
+        ...this.mesh.bindMatrixInverse.toArray(),
         ...this.mesh.matrixWorld.toArray(),
         ...normalMat.slice(0, 3), 0,          // AlignOf(mat3x3<f32>) in wgsl is 16.
         ...normalMat.slice(3, 6), 0,          // see https://gpuweb.github.io/gpuweb/wgsl/#alignment
@@ -108,7 +110,7 @@ class SkinnedMesh extends Mesh {
     if (this.vertexBufferAttributes.includes('index')) vertexBufferAttributs.push('index');
 
     const lightType = globalResource.pointLight ? 'pointLight' : 'directionalLight';
-    const resourceAttributes = [lightType, 'transform', 'boneMatrices'];
+    const resourceAttributes = [lightType, 'skinnedTransform', 'boneMatrices'];
 
     const vertexLayout = vertexBufferFactory.createLayout(vertexBufferAttributs);
     const Bind = bindGroupFactory.create( resourceAttributes, {...globalResource, ...this.resource} );
@@ -163,24 +165,25 @@ class SkinnedMesh extends Mesh {
 
   public override update() {
 
-    // transform
+    // skinnedTransform
     let normalMat = new THREE.Matrix3().getNormalMatrix(this.mesh.matrixWorld).toArray();
-    (this.resourceCPUData.transform as TypedArray).set([
+    (this.resourceCPUData.skinnedTransform as TypedArray).set([
       ...this.mesh.matrixWorld.toArray(),
       ...normalMat.slice(0, 3), 0,
       ...normalMat.slice(3, 6), 0,
       ...normalMat.slice(6, 9), 0
-    ]);
+    ], 32);
     device.queue.writeBuffer( 
-      this.resource.transform as GPUBuffer,
-      0, this.resourceCPUData.transform as TypedArray
+      this.resource.skinnedTransform as GPUBuffer, 128, // offsets (byte)
+      this.resourceCPUData.skinnedTransform as TypedArray, 32 // offsets (data)
     );
 
     // boneMatrix
     this.mesh.skeleton.update();
     device.queue.writeBuffer( 
-      this.resource.boneMatrices as GPUBuffer,
-      0, this.mesh.skeleton.boneMatrices as TypedArray, 0, this.boneCount * 16
+      this.resource.boneMatrices as GPUBuffer, 0, 
+      this.mesh.skeleton.boneMatrices as TypedArray, 0,
+      this.boneCount * 16 // copy size (data)
     );
 
   }

@@ -34,7 +34,11 @@ ${Definitions.PointLight}
 #if ${directionalLight}
 ${Definitions.DirectionalLight}
 #endif
+#if ${skinned}
+${Definitions.SkinnedTransform}
+#else
 ${Definitions.Transform}
+#endif
 
 ${bindingIndices['camera']} var<uniform> camera: Camera;
 #if ${pointLight}
@@ -44,14 +48,15 @@ ${bindingIndices['pointLight']} var<uniform> light: PointLight;
 ${bindingIndices['directionalLight']} var<uniform> light: DirectionalLight;
 #endif
 
-${bindingIndices['transform']} var<uniform> transform : Transform;
-#if ${skinned}
+#if ${skinned} 
+${bindingIndices['skinnedTransform']} var<uniform> transform : SkinnedTransform;
 ${bindingIndices['boneMatrices']} var<storage, read> boneMatrices : array<mat4x4<f32>>;
+#else
+${bindingIndices['transform']} var<uniform> transform : Transform;
 #endif
 
 #if ${skinned}
-${Skinning.SingleSkinning}
-${Skinning.BlendSkinning}
+${Skinning.Matrices}
 #endif
 
 struct VertexOutput {
@@ -80,14 +85,29 @@ fn main(
 #endif
 ) -> VertexOutput {
   
+  // object space
 #if ${skinned}
-  let positionObject = blendSkinning(vec4<f32>(position, 1.0), skinIndex, skinWeight);
+  let skinningMatrices = getSkinningMatrices(skinIndex);
+  ${Skinning.SkinningPostion}
+  ${Skinning.NormalSkinningMat}
+  let normalObject = (normalSkinningMat * vec4<f32>(normal, 0.0)).xyz;
+  #if ${tangent}
+    let tangentObject = (normalSkinningMat * vec4<f32>(tangent.xyz, 0.0)).xyz;
+  #endif
+#endif
+#if ${!skinned}
+  let positionObject = vec4<f32>(position, 1.0);
+  let normalObject = normal;
+  #if ${tangent}
+    let tangentObject = tangent.xyz;
+  #endif
+#endif
+
+  // world space
   let positionWorld = transform.modelMat * positionObject;
-  let normalObject = blendSkinning(vec4<f32>(normal, 0.0), skinIndex, skinWeight).xyz;
   let normalWorld = normalize(transform.normalMat * normalObject);
-#else
-  let positionWorld = transform.modelMat * vec4<f32>(position, 1.0);
-  let normalWorld = normalize(transform.normalMat * normal);
+#if ${tangent}
+  let tangentWorld = normalize(transform.normalMat * tangentObject);
 #endif
   
   var output: VertexOutput;
@@ -98,7 +118,6 @@ fn main(
   output.shadowPos = light.viewProjectionMat * positionWorld; // @interpolate(perspective, center)
 
 #if ${tangent}
-  let tangentWorld = normalize(transform.normalMat * tangent.xyz);
   output.tangent = tangentWorld;
   output.biTangent = cross(normalWorld, tangentWorld) * tangent.w; // tangent.w indicates the direction of biTangent
 #endif
@@ -118,7 +137,11 @@ ${Definitions.PointLight}
 #if ${directionalLight}
 ${Definitions.DirectionalLight}
 #endif
+#if ${skinned}
+${Definitions.SkinnedTransform}
+#else
 ${Definitions.Transform}
+#endif
 
 #if ${pointLight}
 ${bindingIndices['pointLight']} var<uniform> light: PointLight;
@@ -126,14 +149,15 @@ ${bindingIndices['pointLight']} var<uniform> light: PointLight;
 #if ${directionalLight}
 ${bindingIndices['directionalLight']} var<uniform> light: DirectionalLight;
 #endif
-${bindingIndices['transform']} var<uniform> transform: Transform;
 #if ${skinned}
+${bindingIndices['skinnedTransform']} var<uniform> transform : SkinnedTransform;
 ${bindingIndices['boneMatrices']} var<storage, read> boneMatrices : array<mat4x4<f32>>;
+#else
+${bindingIndices['transform']} var<uniform> transform : Transform;
 #endif
 
 #if ${skinned}
-${Skinning.SingleSkinning}
-${Skinning.BlendSkinning}
+${Skinning.Matrices}
 #endif
 
 @vertex
@@ -146,7 +170,8 @@ fn main(
 ) -> @builtin(position) vec4<f32> {
 
 #if ${skinned}
-  let positionObject = blendSkinning(vec4<f32>(position, 1.0), skinIndex, skinWeight);
+  let skinningMatrices = getSkinningMatrices(skinIndex);
+  ${Skinning.SkinningPostion}
 #else
   let positionObject = vec4<f32>(position, 1.0);
 #endif
@@ -156,7 +181,7 @@ fn main(
 }
 `
   }
-  
+
   return code;
 
 }

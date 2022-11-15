@@ -41,7 +41,16 @@ struct Transform {
 };
 `;
 
-const Definitions = { Camera, PointLight, DirectionalLight, PBRMaterial, Transform };
+const SkinnedTransform = /* wgsl */`
+struct SkinnedTransform {
+  bindMat: mat4x4<f32>,
+  bindMatInverse: mat4x4<f32>,
+  modelMat: mat4x4<f32>,
+  normalMat : mat3x3<f32>
+};
+`;
+
+const Definitions = { Camera, PointLight, DirectionalLight, PBRMaterial, Transform, SkinnedTransform };
 
 
 // constants
@@ -472,36 +481,33 @@ fn ACESToneMapping(color: vec3<f32>) -> vec3<f32> {
 
 // animation
 
-const SingleSkinning = /* wgsl */`
-fn singleSkinning(
-  position: vec4<f32>, 
-  skinIndex: u32,
-  skinWeight: f32
-) -> vec4<f32> {
-  if (skinWeight > 0.0) {
-    return skinWeight * boneMatrices[skinIndex] * position;
-  }
-  else {
-    return vec4<f32>(0.0);
-  }
+const Matrices = /* wgsl */`
+fn getSkinningMatrices(skinIndex: vec4<u32>) -> array<mat4x4<f32>, 4> {
+  return array<mat4x4<f32>, 4>(
+    boneMatrices[skinIndex.x], boneMatrices[skinIndex.y],
+    boneMatrices[skinIndex.z], boneMatrices[skinIndex.w]
+  );
 }
 `;
 
-const BlendSkinning = /* wgsl */`
-fn blendSkinning(
-  position: vec4<f32>,
-  skinIndex: vec4<u32>,
-  skinWeight: vec4<f32>
-) -> vec4<f32> {
-  var result = singleSkinning(position, skinIndex.x, skinWeight.x);
-  result = result + singleSkinning(position, skinIndex.y, skinWeight.y);
-  result = result + singleSkinning(position, skinIndex.z, skinWeight.z);
-  result = result + singleSkinning(position, skinIndex.w, skinWeight.w);
-  return result;
-}
+const SkinningPostion = /* wgsl */`
+  let positionSkin = transform.bindMat * vec4<f32>(position, 1.0);
+  var positionObject = skinningMatrices[0] * positionSkin * skinWeight[0];
+  positionObject = positionObject + skinningMatrices[1] * positionSkin * skinWeight[1];
+  positionObject = positionObject + skinningMatrices[2] * positionSkin * skinWeight[2];
+  positionObject = positionObject + skinningMatrices[3] * positionSkin * skinWeight[3];
+  positionObject = transform.bindMatInverse * positionObject;
 `;
 
-const Skinning = { SingleSkinning, BlendSkinning };
+const NormalSkinningMat = /* wgsl */`
+  var normalSkinningMat = skinningMatrices[0] * skinWeight[0];
+  normalSkinningMat = normalSkinningMat + skinningMatrices[1] * skinWeight[1];
+  normalSkinningMat = normalSkinningMat + skinningMatrices[2] * skinWeight[2];
+  normalSkinningMat = normalSkinningMat + skinningMatrices[3] * skinWeight[3];
+  normalSkinningMat = transform.bindMatInverse * normalSkinningMat * transform.bindMat;
+`;
+
+const Skinning = { Matrices, SkinningPostion, NormalSkinningMat };
 
 
 export { 

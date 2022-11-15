@@ -133,7 +133,7 @@ class Main {
       mesh.rotation.set(-0.5 * Math.PI, 0, Math.PI)
       mesh.skeleton.pose()
       mesh.skeleton.update()
-      console.log(mesh.skeleton.bones)
+      console.log(mesh.skeleton)
       this.scene.add( mesh, bone );
     }
 

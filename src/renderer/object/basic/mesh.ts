@@ -68,7 +68,7 @@ class Mesh extends RenderableObject {
     const material = this.mesh.material as THREE.MeshStandardMaterial;
     
     let normalMat = new THREE.Matrix3().getNormalMatrix(this.mesh.matrixWorld).toArray();
-    
+
     this.resourceAttributes = ['transform', 'PBRMaterial'];
     this.resourceCPUData = {
       transform: new Float32Array([

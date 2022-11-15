@@ -207,6 +207,15 @@ const ResourceFormat = {
       type: 'uniform' as GPUBufferBindingType
     } as GPUBufferBindingLayout
   },
+  skinnedTransform: {
+    type: 'buffer' as ResourceType,
+    label: 'Model Matrix with Bind Matirx (mat4x4)',
+    visibility: GPUShaderStage.VERTEX,
+    usage:  GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+    layout: { 
+      type: 'uniform' as GPUBufferBindingType
+    } as GPUBufferBindingLayout
+  },
   modelMat: {
     type: 'buffer' as ResourceType,
     label: 'Model Matrix (mat4x4)',
