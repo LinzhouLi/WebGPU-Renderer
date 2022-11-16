@@ -42,11 +42,7 @@ class GlobalObject {
       ).normalize();
 
     this.resourceCPUData = {
-      camera: new Float32Array([
-        ...this.camera.position.toArray(), 0, // AlignOf(vec3<f32>) in wgsl is 16. see https://gpuweb.github.io/gpuweb/wgsl/#alignment
-        ...this.camera.matrixWorldInverse.toArray(),
-        ...this.camera.projectionMatrix.toArray()
-      ]),
+      camera: new Float32Array(4 + 16 + 16), // update per frame
       [this.lightType]: new Float32Array([
         ...lightPosOrDir.toArray(), 0,
         ...this.light.color.toArray(), 0,

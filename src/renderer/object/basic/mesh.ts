@@ -66,17 +66,10 @@ class Mesh extends RenderableObject {
   public async initGroupResource() {
 
     const material = this.mesh.material as THREE.MeshStandardMaterial;
-    
-    let normalMat = new THREE.Matrix3().getNormalMatrix(this.mesh.matrixWorld).toArray();
 
     this.resourceAttributes = ['transform', 'PBRMaterial'];
     this.resourceCPUData = {
-      transform: new Float32Array([
-        ...this.mesh.matrixWorld.toArray(),
-        ...normalMat.slice(0, 3), 0,          // AlignOf(mat3x3<f32>) in wgsl is 16.
-        ...normalMat.slice(3, 6), 0,          // see https://gpuweb.github.io/gpuweb/wgsl/#alignment
-        ...normalMat.slice(6, 9), 0
-      ]),
+      transform: new Float32Array(16 + 12), // update per frame
       PBRMaterial: new Float32Array([
         material.roughness,
         material.metalness, 

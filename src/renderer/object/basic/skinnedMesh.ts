@@ -55,19 +55,14 @@ class SkinnedMesh extends Mesh {
 
     const material = this.mesh.material as THREE.MeshStandardMaterial;
     
-    let normalMat = new THREE.Matrix3().getNormalMatrix(this.mesh.matrixWorld).toArray();
-    
     this.resourceAttributes = ['skinnedTransform', 'boneMatrices', 'PBRMaterial'];
     this.resourceCPUData = {
       skinnedTransform: new Float32Array([
         ...this.mesh.bindMatrix.toArray(),
         ...this.mesh.bindMatrixInverse.toArray(),
-        ...this.mesh.matrixWorld.toArray(),
-        ...normalMat.slice(0, 3), 0,          // AlignOf(mat3x3<f32>) in wgsl is 16.
-        ...normalMat.slice(3, 6), 0,          // see https://gpuweb.github.io/gpuweb/wgsl/#alignment
-        ...normalMat.slice(6, 9), 0
+        ...new Array(16 + 12) // update per frame
       ]),
-      boneMatrices: new Float32Array(this.boneCount * 16),
+      boneMatrices: new Float32Array(this.boneCount * 16), // update per frame
       PBRMaterial: new Float32Array([
         material.roughness,
         material.metalness, 
