@@ -86,61 +86,59 @@ ${ACESToneMapping}
 @fragment
 fn main(
   @builtin(position) position: vec4<f32>,
-  @location(0) @interpolate(linear, center) fragPosition: vec3<f32>,
-  @location(1) @interpolate(linear, center) fragNormal: vec3<f32>,
-  @location(2) @interpolate(linear, center) fragUV: vec2<f32>,
-  @location(3) @interpolate(perspective, center) shadowPos: vec4<f32>,
+  @location(0) @interpolate(perspective, center) vPosition: vec3<f32>,
+  @location(1) @interpolate(perspective, center) vNormal: vec3<f32>,
+  @location(2) @interpolate(perspective, center) uv: vec2<f32>,
+  @location(3) @interpolate(perspective, center) vShadowPos: vec4<f32>,
 #if ${normalMap}
-  @location(4) @interpolate(linear, center) tangent: vec3<f32>,
-  @location(5) @interpolate(linear, center) biTangent: vec3<f32>
+  @location(4) @interpolate(perspective, center) vTangent: vec3<f32>,
+  @location(5) @interpolate(perspective, center) vBiTangent: vec3<f32>
 #endif
 ) -> @location(0) vec4<f32> {
 
   // normal
 #if ${normalMap}
-  let TBN: mat3x3<f32> = mat3x3<f32>(tangent, biTangent, fragNormal);
-  let normal_del: vec3<f32> = normalize(
-    textureSample(normalMap, linearSampler, fragUV).xyz - vec3<f32>(0.5)
-  );
-  let normal = normalize(TBN * normal_del.xyz);
+  let TBN = mat3x3<f32>(normalize(vTangent), normalize(vBiTangent), normalize(vNormal));
+  let mapNormal = 2.0 * textureSample(normalMap, linearSampler, uv).xyz - 1.0;
+  let normal = TBN * mapNormal;
 #else
-  let normal = fragNormal;
+  let normal = normalize(vNormal);
 #endif
 
   // material
   var localMaterial: PBRMaterial;
 #if ${roughnessMap}
-  localMaterial.roughness = textureSample(roughnessMap, linearSampler, fragUV).x;
+  localMaterial.roughness = textureSample(roughnessMap, linearSampler, uv).x;
 #else
   localMaterial.roughness = material.roughness;
 #endif
 
 #if ${metalnessMap}
-  localMaterial.metalness = textureSample(metalnessMap, linearSampler, fragUV).x;
+  localMaterial.metalness = textureSample(metalnessMap, linearSampler, uv).x;
 #else
   localMaterial.metalness = material.metalness;
 #endif
   
 #if ${baseMap} // blbedo
-  localMaterial.albedo = textureSample(baseMap, linearSampler, fragUV).xyz;
+  localMaterial.albedo = textureSample(baseMap, linearSampler, uv).xyz;
 #else
   localMaterial.albedo = material.albedo;
 #endif
 
 #if ${specularMap}
-  localMaterial.specular = textureSample(specularMap, linearSampler, fragUV).xyz;
+  localMaterial.specular = textureSample(specularMap, linearSampler, uv).xyz;
 #else
   localMaterial.specular = material.specular;
 #endif
 
   // shadow
-  let shadowUV = shadowPos.xy / shadowPos.w * vec2<f32>(0.5, -0.5) + 0.5;
-  let shadowDepth = shadowPos.z / shadowPos.w;
+  let shadowUV = vShadowPos.xy / vShadowPos.w * vec2<f32>(0.5, -0.5) + 0.5;
+  let shadowDepth = vShadowPos.z / vShadowPos.w;
   // let visibility = 1.0;
   // let visibility = hardShadow(shadowUV, shadowDepth, shadowMap, compareSampler);
   let visibility = PCF(shadowUV, shadowDepth, 5.0, shadowMap, compareSampler);
 
-  let viewDir = normalize(camera.position - fragPosition);
+  let viewDir = normalize(camera.position - vPosition);
   let lightDir = normalize(light.direction);
 
   // Blinn-Phong shading

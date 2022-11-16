@@ -61,13 +61,13 @@ ${Skinning.Matrices}
 
 struct VertexOutput {
   @builtin(position) position: vec4<f32>,
-  @location(0) @interpolate(linear, center) fragPosition: vec3<f32>,
-  @location(1) @interpolate(linear, center) fragNormal: vec3<f32>,
-  @location(2) @interpolate(linear, center) fragUV: vec2<f32>,
-  @location(3) @interpolate(perspective, center) shadowPos: vec4<f32>,
+  @location(0) @interpolate(perspective, center) vPosition: vec3<f32>,
+  @location(1) @interpolate(perspective, center) vNormal: vec3<f32>,
+  @location(2) @interpolate(perspective, center) uv: vec2<f32>,
+  @location(3) @interpolate(perspective, center) vShadowPos: vec4<f32>,
 #if ${tangent}
-  @location(4) @interpolate(linear, center) tangent: vec3<f32>,
-  @location(5) @interpolate(linear, center) biTangent: vec3<f32>
+  @location(4) @interpolate(perspective, center) vTangent: vec3<f32>,
+  @location(5) @interpolate(perspective, center) vBiTangent: vec3<f32>
 #endif
 };
 
@@ -105,21 +105,21 @@ fn main(
 
   // world space
   let positionWorld = transform.modelMat * positionObject;
-  let normalWorld = normalize(transform.normalMat * normalObject);
+  let normalWorld = transform.normalMat * normalObject;
 #if ${tangent}
-  let tangentWorld = normalize(transform.normalMat * tangentObject);
+  let tangentWorld = transform.normalMat * tangentObject;
 #endif
   
   var output: VertexOutput;
   output.position = camera.projectionMat * camera.viewMat * positionWorld;
-  output.fragPosition = positionWorld.xyz;
-  output.fragNormal = normalWorld;
-  output.fragUV = uv;
-  output.shadowPos = light.viewProjectionMat * positionWorld; // @interpolate(perspective, center)
+  output.vPosition = positionWorld.xyz;
+  output.vNormal = normalWorld;
+  output.uv = uv;
+  output.vShadowPos = light.viewProjectionMat * positionWorld; // @interpolate(perspective, center)
 
 #if ${tangent}
-  output.tangent = tangentWorld;
-  output.biTangent = cross(normalWorld, tangentWorld) * tangent.w; // tangent.w indicates the direction of biTangent
+  output.vTangent = tangentWorld;
+  output.vBiTangent = cross(normalWorld, tangentWorld) * tangent.w; // tangent.w indicates the direction of biTangent
 #endif
 
   return output;

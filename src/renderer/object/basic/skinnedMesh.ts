@@ -161,12 +161,14 @@ class SkinnedMesh extends Mesh {
   public override update() {
 
     // skinnedTransform
-    let normalMat = new THREE.Matrix3().getNormalMatrix(this.mesh.matrixWorld).toArray();
+    this.mesh.normalMatrix.getNormalMatrix(this.mesh.matrixWorld);
+    let normalMatArray = this.mesh.normalMatrix.toArray();
+    
     (this.resourceCPUData.skinnedTransform as TypedArray).set([
       ...this.mesh.matrixWorld.toArray(),
-      ...normalMat.slice(0, 3), 0,
-      ...normalMat.slice(3, 6), 0,
-      ...normalMat.slice(6, 9), 0
+      ...normalMatArray.slice(0, 3), 0,
+      ...normalMatArray.slice(3, 6), 0,
+      ...normalMatArray.slice(6, 9), 0
     ], 32);
     device.queue.writeBuffer( 
       this.resource.skinnedTransform as GPUBuffer, 128, // offsets (byte)

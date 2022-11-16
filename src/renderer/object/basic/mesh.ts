@@ -240,16 +240,18 @@ class Mesh extends RenderableObject {
 
   public update() {
 
-    let normalMat = new THREE.Matrix3().getNormalMatrix(this.mesh.matrixWorld).toArray();
+    this.mesh.normalMatrix.getNormalMatrix(this.mesh.matrixWorld);
+    let normalMatArray = this.mesh.normalMatrix.toArray();
+
     (this.resourceCPUData.transform as TypedArray).set([
       ...this.mesh.matrixWorld.toArray(),
-      ...normalMat.slice(0, 3), 0,
-      ...normalMat.slice(3, 6), 0,
-      ...normalMat.slice(6, 9), 0
+      ...normalMatArray.slice(0, 3), 0,
+      ...normalMatArray.slice(3, 6), 0,
+      ...normalMatArray.slice(6, 9), 0
     ]);
     device.queue.writeBuffer( 
-      this.resource.transform as GPUBuffer,
-      0, this.resourceCPUData.transform as TypedArray
+      this.resource.transform as GPUBuffer, 0, 
+      this.resourceCPUData.transform as TypedArray, 0
     );
 
   }
