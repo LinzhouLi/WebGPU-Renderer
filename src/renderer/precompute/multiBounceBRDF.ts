@@ -3,6 +3,8 @@
 
 import { device } from '../renderer';
 import { Constants, Sampling, PBR, ToolFunction } from '../resource/shaderChunk';
+import type { ResourceType } from '../resource/resuorce';
+import { ResourceFactory } from '../resource/resuorce';
 
 const EmuComputeShader = /* wgsl */`
 @group(0) @binding(0) var Emu: texture_storage_2d<r32float, write>;
@@ -100,6 +102,39 @@ fn main(@builtin(global_invocation_id) global_index : vec3<u32>) {
 class MultiBounceBRDF {
 
   public static EmuResolution = 64;
+
+  private static ResourceFormats = {
+    Emu: {
+      type: 'texture' as ResourceType,
+      labal: 'Emu Texture',
+      visibility: GPUShaderStage.FRAGMENT,
+      usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.STORAGE_BINDING,
+      size: [MultiBounceBRDF.EmuResolution, MultiBounceBRDF.EmuResolution],
+      dimension: '2d' as GPUTextureDimension,
+      format: 'r32float' as GPUTextureFormat,
+      layout: {
+        sampleType: 'unfilterable-float' as GPUTextureSampleType,
+        viewDimension: '2d' as GPUTextureViewDimension
+      } as GPUTextureBindingLayout
+    },
+    Eavg: {
+      type: 'texture' as ResourceType,
+      labal: 'Eavg Texture',
+      visibility: GPUShaderStage.FRAGMENT,
+      usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.STORAGE_BINDING,
+      size: [MultiBounceBRDF.EmuResolution],
+      dimension: '1d' as GPUTextureDimension,
+      format: 'r32float' as GPUTextureFormat,
+      layout: {
+        sampleType: 'unfilterable-float' as GPUTextureSampleType,
+        viewDimension: '1d' as GPUTextureViewDimension
+      } as GPUTextureBindingLayout
+    },
+  };
+
+  public static RegisterResourceFormats() {
+    ResourceFactory.RegisterFormats(MultiBounceBRDF.ResourceFormats);
+  }
 
   private EmuComputePipeline: GPUComputePipeline;
   private EavgComputePipeline: GPUComputePipeline;

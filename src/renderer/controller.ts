@@ -1,11 +1,10 @@
 import * as THREE from 'three';
 import { device, canvasFormat } from './renderer';
-import { GlobalObject } from './object/global';
 import { RenderableObject } from './object/renderableObject';
+import { GlobalObject } from './object/global';
 import { Mesh } from './object/basic/mesh';
 import { SkinnedMesh } from './object/basic/skinnedMesh';
 import { Skybox } from './object/skybox';
-import { MultiBounceBRDF } from './precompute/multiBounceBRDF';
 import { IBL } from './precompute/IBL';
 
 // console.info( 'THREE.WebGPURenderer: Modified Matrix4.makePerspective() and Matrix4.makeOrtographic() to work with WebGPU, see https://github.com/mrdoob/three.js/issues/20276.' );
@@ -80,7 +79,6 @@ class RenderController {
   public globalObject: GlobalObject;
   public objectList: RenderableObject[];
   
-  public multiBounceBRDF: MultiBounceBRDF;
   public iBL: IBL;
 
   public shadowBundle: GPURenderBundle;
@@ -89,7 +87,15 @@ class RenderController {
   constructor() {
 
     this.objectList = [];
+    this.RegisterResourceFormats();
 
+  }
+
+  private RegisterResourceFormats() {
+    GlobalObject.RegisterResourceFormats();
+    Mesh.RegisterResourceFormats();
+    SkinnedMesh.RegisterResourceFormats();
+    IBL.RegisterResourceFormats();
   }
 
   private updateMatrix() {

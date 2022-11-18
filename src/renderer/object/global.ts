@@ -1,12 +1,93 @@
 import * as THREE from 'three';
 import { device } from '../renderer';
 import type { TypedArray } from '../base';
-import {
-  resourceFactory
-} from '../base';
+import { resourceFactory } from '../base';
+import type { ResourceType, BufferData, TextureData, TextureArrayData } from '../resource/resuorce';
+import { ResourceFactory } from '../resource/resuorce';
 
 
 class GlobalObject {
+
+  private static ResourceFormats = {
+
+    // camera
+    camera: {
+      type: 'buffer' as ResourceType,
+      label: 'Camera Structure', // position(vec3), view matrix(mat4x4), projection matrix(mat4x4)
+      visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+      usage:  GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+      layout: { 
+        type: 'uniform' as GPUBufferBindingType
+      } as GPUBufferBindingLayout
+    },
+
+    // light
+    pointLight: {
+      type: 'buffer' as ResourceType,
+      label: 'Point Light Structure', // position(vec3<f32>), color(vec3<f32>), view projection matrix(mat4x4<f32>)
+      visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+      usage:  GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+      layout: { 
+        type: 'uniform' as GPUBufferBindingType
+      } as GPUBufferBindingLayout
+    },
+    directionalLight: {
+      type: 'buffer' as ResourceType,
+      label: 'Directional Light Structure', // direction(vec3<f32>), color(vec3<f32>), view projection matrix(mat4x4<f32>)
+      visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+      usage:  GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+      layout: { 
+        type: 'uniform' as GPUBufferBindingType
+      } as GPUBufferBindingLayout
+    },
+    shadowMap: {
+      type: 'texture' as ResourceType,
+      label: 'Shadow Map',
+      visibility: GPUShaderStage.FRAGMENT,
+      usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
+      size: [2048, 2048],
+      dimension: '2d' as GPUTextureDimension,
+      format: 'depth32float' as GPUTextureFormat,
+      layout: { 
+        sampleType: 'depth' as GPUTextureSampleType,
+        viewDimension: '2d' as GPUTextureViewDimension
+      } as GPUTextureBindingLayout
+    },
+
+    // sampler
+    compareSampler: {
+      type: 'sampler' as ResourceType,
+      label: 'Compare Sampler',
+      visibility: GPUShaderStage.FRAGMENT,
+      compare: 'less' as GPUCompareFunction,
+      magFilter: 'nearest' as GPUFilterMode,
+      minFilter: 'nearest' as GPUFilterMode,
+      layout: { 
+        type: 'comparison' as GPUSamplerBindingType 
+      } as GPUSamplerBindingLayout
+    },
+    linearSampler: {
+      type: 'sampler' as ResourceType,
+      label: 'Linear Sampler',
+      visibility: GPUShaderStage.FRAGMENT | GPUShaderStage.COMPUTE,
+      magFilter: 'linear' as GPUFilterMode,
+      minFilter: 'linear' as GPUFilterMode,
+      layout: { 
+        type: 'filtering' as GPUSamplerBindingType 
+      } as GPUSamplerBindingLayout
+    }, 
+    nonFilterSampler: {
+      type: 'sampler' as ResourceType,
+      label: 'Non Filter Sampler',
+      visibility: GPUShaderStage.FRAGMENT,
+      magFilter: 'nearest' as GPUFilterMode,
+      minFilter: 'nearest' as GPUFilterMode,
+      layout: { 
+        type: 'non-filtering' as GPUSamplerBindingType 
+      } as GPUSamplerBindingLayout
+    },
+
+  };
 
   private camera: THREE.PerspectiveCamera;
   private light: THREE.PointLight | THREE.DirectionalLight;
@@ -14,8 +95,8 @@ class GlobalObject {
   private scene: THREE.Scene;
 
   private resourceAttributes: string[]; // resource name
-  private resourceCPUData: { [x: string]: TypedArray | ImageBitmap | ImageBitmapSource }; // resource in CPU
-  public resource: { [x: string]: GPUBuffer | GPUTexture | GPUSampler }; // resource in GPU
+  private resourceCPUData: Record<string, BufferData | TextureData | TextureArrayData>; // resource in CPU
+  public resource: Record<string, GPUBuffer | GPUTexture | GPUSampler>; // resource in GPU
 
   constructor(camera: THREE.PerspectiveCamera, light: THREE.PointLight | THREE.DirectionalLight, scene: THREE.Scene) {
 
@@ -24,6 +105,10 @@ class GlobalObject {
     this.scene = scene;
     this.lightType = light instanceof THREE.PointLight ? 'pointLight' : 'directionalLight';
 
+  }
+
+  public static RegisterResourceFormats() {
+    ResourceFactory.RegisterFormats(GlobalObject.ResourceFormats);
   }
 
   public async initResource() {
@@ -42,13 +127,18 @@ class GlobalObject {
       ).normalize();
 
     this.resourceCPUData = {
-      camera: new Float32Array(4 + 16 + 16), // update per frame
-      [this.lightType]: new Float32Array([
-        ...lightPosOrDir.toArray(), 0,
-        ...this.light.color.toArray(), 0,
-        ...this.light.shadow.camera.projectionMatrix.multiply(this.light.shadow.camera.matrixWorldInverse).toArray()
-      ]),
-      envMap: (this.scene.background as THREE.CubeTexture).source.data
+      camera: { value: new Float32Array(4 + 16 + 16) }, // update per frame
+      [this.lightType]: { 
+        value: new Float32Array([
+          ...lightPosOrDir.toArray(), 0,
+          ...this.light.color.toArray(), 0,
+          ...this.light.shadow.camera.projectionMatrix.multiply(this.light.shadow.camera.matrixWorldInverse).toArray()
+        ])
+      },
+      envMap: { 
+        value: (this.scene.background as THREE.CubeTexture).source.data,
+        flipY: new Array(6).fill((this.scene.background as THREE.CubeTexture).flipY)
+      }
     }
     
     this.resource = await resourceFactory.createResource(this.resourceAttributes, this.resourceCPUData);

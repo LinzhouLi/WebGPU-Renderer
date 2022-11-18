@@ -5,10 +5,86 @@ import { vertexBufferFactory, resourceFactory, bindGroupFactory } from '../../ba
 import { RenderableObject } from '../renderableObject';
 import { vertexShaderFactory } from './vertexShader';
 import { fragmentShaderFactory } from './fragmentShader';
+import type { ResourceType, BufferData, TextureData, TextureArrayData } from '../../resource/resuorce';
+import { ResourceFactory } from '../../resource/resuorce';
 
 const defaultSpecular = new THREE.Vector3(0.5, 0.5, 0.5);
 
 class Mesh extends RenderableObject {
+
+  private static ResourceFormats = {
+
+    // transform
+    transform: {
+      type: 'buffer' as ResourceType,
+      label: 'Transform Matrices (mat4x4)',
+      visibility: GPUShaderStage.VERTEX,
+      usage:  GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+      layout: { 
+        type: 'uniform' as GPUBufferBindingType
+      } as GPUBufferBindingLayout
+    },
+
+    // material
+    PBRMaterial: {
+      type: 'buffer' as ResourceType,
+      label: 'PBR Material Structure', // roughness(f32), metalness(f32), albedo(vec3<f32>), specular(vec3<f32>)
+      visibility: GPUShaderStage.FRAGMENT,
+      usage:  GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+      layout: { 
+        type: 'uniform' as GPUBufferBindingType
+      } as GPUBufferBindingLayout
+    },
+    baseMap: { // texture
+      type: 'texture' as ResourceType,
+      label: 'Base Albedo Map',
+      visibility: GPUShaderStage.FRAGMENT,
+      usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT,
+      dimension: '2d' as GPUTextureDimension,
+      format: 'rgba8unorm' as GPUTextureFormat,
+      layout: { 
+        sampleType: 'float' as GPUTextureSampleType,
+        viewDimension: '2d' as GPUTextureViewDimension
+      } as GPUTextureBindingLayout
+    }, 
+    normalMap: { // normal map
+      type: 'texture' as ResourceType,
+      label: 'Normal Map',
+      visibility: GPUShaderStage.FRAGMENT,
+      usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT,
+      dimension: '2d' as GPUTextureDimension,
+      format: 'rgba8unorm' as GPUTextureFormat,
+      layout: { 
+        sampleType: 'float' as GPUTextureSampleType,
+        viewDimension: '2d' as GPUTextureViewDimension
+      } as GPUTextureBindingLayout
+    }, 
+    metalnessMap: { // metalness map
+      type: 'texture' as ResourceType,
+      label: 'Metalness Map',
+      visibility: GPUShaderStage.FRAGMENT,
+      usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT,
+      dimension: '2d' as GPUTextureDimension,
+      format: 'rgba8unorm' as GPUTextureFormat,
+      layout: { 
+        sampleType: 'float' as GPUTextureSampleType,
+        viewDimension: '2d' as GPUTextureViewDimension
+      } as GPUTextureBindingLayout
+    },
+    roughnessMap: { // roughness map
+      type: 'texture' as ResourceType,
+      label: 'RoughnessMap',
+      visibility: GPUShaderStage.FRAGMENT,
+      usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT,
+      dimension: '2d' as GPUTextureDimension,
+      format: 'rgba8unorm' as GPUTextureFormat,
+      layout: { 
+        sampleType: 'float' as GPUTextureSampleType,
+        viewDimension: '2d' as GPUTextureViewDimension
+      } as GPUTextureBindingLayout
+    },
+
+  };
 
   protected mesh: THREE.Mesh;
 
@@ -17,12 +93,12 @@ class Mesh extends RenderableObject {
 
   protected vertexCount: number;
   protected vertexBufferAttributes: string[]; // resource name
-  protected vertexBufferData: { [x: string]: TypedArray }; // resource in CPU
-  protected vertexBuffers: { [x: string]: GPUBuffer }; // resource in GPU
+  protected vertexBufferData: Record<string, TypedArray>; // resource in CPU
+  protected vertexBuffers: Record<string, GPUBuffer>; // resource in GPU
 
   protected resourceAttributes: string[]; // resource name
-  protected resourceCPUData: { [x: string]: TypedArray | ImageBitmap | ImageBitmapSource }; // resource in CPU
-  protected resource: { [x: string]: GPUBuffer | GPUTexture | GPUSampler }; // resource in GPU
+  protected resourceCPUData: Record<string, BufferData | TextureData | TextureArrayData>; // resource in CPU
+  protected resource: Record<string, GPUBuffer | GPUTexture | GPUSampler>; // resource in GPU
 
   protected createVertexShader: (slotAttributes: string[], attributes: string[][], pass: ('render' | 'shadow')) => string;
   protected createFragmentShader: (slotAttributes: string[], attributes: string[][], type: ('phong' | 'PBR')) => string;
@@ -34,6 +110,10 @@ class Mesh extends RenderableObject {
     this.createVertexShader = vertexShaderFactory;
     this.createFragmentShader = fragmentShaderFactory;
     
+  }
+
+  public static RegisterResourceFormats() {
+    ResourceFactory.RegisterFormats(Mesh.ResourceFormats);
   }
 
   public initVertexBuffer() {
@@ -69,34 +149,48 @@ class Mesh extends RenderableObject {
 
     this.resourceAttributes = ['transform', 'PBRMaterial'];
     this.resourceCPUData = {
-      transform: new Float32Array(16 + 12), // update per frame
-      PBRMaterial: new Float32Array([
-        material.roughness,
-        material.metalness, 
-        0, 0, // for alignment
-        ...material.color.toArray(), 0, // @ts-ignore
-        ...(material.specular || defaultSpecular).toArray(), 0
-      ])
+      transform: { value: new Float32Array(16 + 12) }, // update per frame
+      PBRMaterial: { 
+        value: new Float32Array([
+          material.roughness,
+          material.metalness, 
+          0, 0, // for alignment
+          ...material.color.toArray(), 0, // @ts-ignore
+          ...(material.specular || defaultSpecular).toArray(), 0
+        ])
+      }
     };
     
     if (!!material.map) {
       this.resourceAttributes.push('baseMap');
-      this.resourceCPUData.baseMap = material.map.source.data;
+      this.resourceCPUData.baseMap = { 
+        value: material.map.source.data, 
+        flipY: material.map.flipY 
+      };
     }
 
     if (!!material.normalMap) {
       this.resourceAttributes.push('normalMap');
-      this.resourceCPUData.normalMap = material.normalMap.source.data;
+      this.resourceCPUData.normalMap = { 
+        value: material.normalMap.source.data, 
+        flipY: material.map.flipY 
+      };
     }
 
     if (!!material.metalnessMap) {
       this.resourceAttributes.push('metalnessMap');
-      this.resourceCPUData.metalnessMap = material.metalnessMap.source.data;
+      this.resourceCPUData.metalnessMap = { 
+        value: material.metalnessMap.source.data, 
+        flipY: material.map.flipY 
+      };
     }
 
     if (!!material.roughnessMap) {
       this.resourceAttributes.push('roughnessMap');
-      this.resourceCPUData.roughnessMap = material.roughnessMap.source.data;
+      this.resourceCPUData.roughnessMap = { 
+        value: material.roughnessMap.source.data, 
+        flipY: material.map.flipY
+      };
     }
     
     this.resource = await resourceFactory.createResource(this.resourceAttributes, this.resourceCPUData);

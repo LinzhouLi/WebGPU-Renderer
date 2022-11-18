@@ -5,10 +5,34 @@ import { vertexBufferFactory, resourceFactory, bindGroupFactory } from '../../ba
 import { vertexShaderFactory } from './vertexShader';
 import { fragmentShaderFactory } from './fragmentShader';
 import { Mesh } from './mesh';
+import type { ResourceType } from '../../resource/resuorce';
+import { ResourceFactory } from '../../resource/resuorce';
 
 const defaultSpecular = new THREE.Vector3(0.5, 0.5, 0.5);
 
 class SkinnedMesh extends Mesh {
+
+  private static _ResourceFormats = {
+    // transform
+    skinnedTransform: {
+      type: 'buffer' as ResourceType,
+      label: 'Transform Matrices (mat4x4)',
+      visibility: GPUShaderStage.VERTEX,
+      usage:  GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+      layout: { 
+        type: 'uniform' as GPUBufferBindingType
+      } as GPUBufferBindingLayout
+    },
+    boneMatrices: {
+      type: 'buffer' as ResourceType,
+      label: 'Skinning Matrices (mat4x4)',
+      visibility: GPUShaderStage.VERTEX,
+      usage:  GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+      layout: { 
+        type: 'read-only-storage' as GPUBufferBindingType
+      } as GPUBufferBindingLayout
+    },
+  };
 
   protected declare mesh: THREE.SkinnedMesh;
   protected boneCount: number;
@@ -20,6 +44,10 @@ class SkinnedMesh extends Mesh {
     this.createFragmentShader = fragmentShaderFactory;
     this.boneCount = this.mesh.skeleton.bones.length;
 
+  }
+
+  public static RegisterResourceFormats() {
+    ResourceFactory.RegisterFormats(SkinnedMesh._ResourceFormats);
   }
 
   public override initVertexBuffer() {
@@ -57,39 +85,55 @@ class SkinnedMesh extends Mesh {
     
     this.resourceAttributes = ['skinnedTransform', 'boneMatrices', 'PBRMaterial'];
     this.resourceCPUData = {
-      skinnedTransform: new Float32Array([
-        ...this.mesh.bindMatrix.toArray(),
-        ...this.mesh.bindMatrixInverse.toArray(),
-        ...new Array(16 + 12) // update per frame
-      ]),
-      boneMatrices: new Float32Array(this.boneCount * 16), // update per frame
-      PBRMaterial: new Float32Array([
-        material.roughness,
-        material.metalness, 
-        0, 0, // for alignment
-        ...material.color.toArray(), 0, // @ts-ignore
-        ...(material.specular || defaultSpecular).toArray(), 0
-      ])
+      skinnedTransform: {
+        value: new Float32Array([
+          ...this.mesh.bindMatrix.toArray(),
+          ...this.mesh.bindMatrixInverse.toArray(),
+          ...new Array(16 + 12) // update per frame
+        ])
+      },
+      boneMatrices: { value: new Float32Array(this.boneCount * 16) }, // update per frame
+      PBRMaterial: { 
+        value: new Float32Array([
+          material.roughness,
+          material.metalness, 
+          0, 0, // for alignment
+          ...material.color.toArray(), 0, // @ts-ignore
+          ...(material.specular || defaultSpecular).toArray(), 0
+        ])
+      }
     };
     
     if (!!material.map) {
       this.resourceAttributes.push('baseMap');
-      this.resourceCPUData.baseMap = material.map.source.data;
+      this.resourceCPUData.baseMap = { 
+        value: material.map.source.data, 
+        flipY: material.map.flipY 
+      };
     }
 
     if (!!material.normalMap) {
       this.resourceAttributes.push('normalMap');
-      this.resourceCPUData.normalMap = material.normalMap.source.data;
+      this.resourceCPUData.normalMap = { 
+        value: material.normalMap.source.data, 
+        flipY: material.map.flipY 
+      };
     }
 
     if (!!material.metalnessMap) {
       this.resourceAttributes.push('metalnessMap');
-      this.resourceCPUData.metalnessMap = material.metalnessMap.source.data;
+      this.resourceCPUData.metalnessMap = { 
+        value: material.metalnessMap.source.data, 
+        flipY: material.map.flipY 
+      };
     }
 
     if (!!material.roughnessMap) {
       this.resourceAttributes.push('roughnessMap');
-      this.resourceCPUData.roughnessMap = material.roughnessMap.source.data;
+      this.resourceCPUData.roughnessMap = { 
+        value: material.roughnessMap.source.data, 
+        flipY: material.map.flipY
+      };
     }
     
     this.resource = await resourceFactory.createResource(this.resourceAttributes, this.resourceCPUData);

@@ -1,16 +1,90 @@
 import * as THREE from 'three';
 import { device, canvasFormat } from '../../renderer';
 import type { TypedArray } from '../../base';
-import {
-  vertexBufferFactory,
-  resourceFactory,
-  bindGroupFactory
-} from '../../base';
+import { vertexBufferFactory, resourceFactory, bindGroupFactory } from '../../base';
 import { RenderableObject } from '../renderableObject';
 import { createVertexShader } from './vertexShader';
 import { createFragmentShader } from './fragmentShader';
+import type { ResourceType, BufferData, TextureData, TextureArrayData } from '../../resource/resuorce';
+import { ResourceFactory } from '../../resource/resuorce';
 
 class InstancedMesh extends RenderableObject {
+
+  private static ResourceFormats = {
+    instancedInfo: {
+      type: 'buffer' as ResourceType,
+      label: 'Instance Infomation',
+      visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+      usage:  GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+      layout: { 
+        type: 'read-only-storage' as GPUBufferBindingType
+      } as GPUBufferBindingLayout
+    },
+  
+    // transform
+    instancedTransform: {
+      type: 'buffer' as ResourceType,
+      label: 'Transform Structure for Instanced Mesh',
+      visibility: GPUShaderStage.VERTEX,
+      usage:  GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+      layout: { 
+        type: 'read-only-storage' as GPUBufferBindingType
+      } as GPUBufferBindingLayout
+    },
+    instancedModelMat: {
+      type: 'buffer' as ResourceType,
+      label: 'Model Matrix for Instanced Mesh (mat4x4xn)',
+      visibility: GPUShaderStage.VERTEX,
+      usage:  GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+      layout: { 
+        type: 'read-only-storage' as GPUBufferBindingType
+      } as GPUBufferBindingLayout
+    },
+    instancedNormalMat: {
+      type: 'buffer' as ResourceType,
+      label: 'Normal Matrix for Instanced Mesh (mat3x3xn)',
+      visibility: GPUShaderStage.VERTEX,
+      usage:  GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+      layout: { 
+        type: 'read-only-storage' as GPUBufferBindingType
+      } as GPUBufferBindingLayout
+    },
+  
+    // material
+    instancedColor: {
+      type: 'buffer' as ResourceType,
+      label: 'Color for Instanced Mesh (vec3)',
+      visibility: GPUShaderStage.FRAGMENT,
+      usage:  GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+      layout: { 
+        type: 'read-only-storage' as GPUBufferBindingType
+      } as GPUBufferBindingLayout
+    },
+    baseMapArray: {
+      type: 'texture-array' as ResourceType,
+      label: 'Base Albedo Map Array for Instanced Mesh',
+      visibility: GPUShaderStage.FRAGMENT,
+      usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT,
+      dimension: '2d' as GPUTextureDimension,
+      format: 'rgba8unorm' as GPUTextureFormat,
+      layout: { 
+        sampleType: 'float' as GPUTextureSampleType,
+        viewDimension: '2d-array' as GPUTextureViewDimension
+      } as GPUTextureBindingLayout
+    },
+    normalMapArray: {
+      type: 'texture-array' as ResourceType,
+      label: 'Normal Map Array for Instanced Mesh',
+      visibility: GPUShaderStage.FRAGMENT,
+      usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT,
+      dimension: '2d' as GPUTextureDimension,
+      format: 'rgba8unorm' as GPUTextureFormat,
+      layout: { 
+        sampleType: 'float' as GPUTextureSampleType,
+        viewDimension: '2d-array' as GPUTextureViewDimension
+      } as GPUTextureBindingLayout
+    },
+  };
 
   private mesh: THREE.Mesh;
 
@@ -20,12 +94,12 @@ class InstancedMesh extends RenderableObject {
   private instanceCount: number;
   private vertexCount: number;
   private vertexBufferAttributes: string[]; // resource name
-  private vertexBufferData: { [x: string]: TypedArray }; // resource in CPU
-  private vertexBuffers: { [x: string]: GPUBuffer }; // resource in GPU
+  private vertexBufferData: Record<string, TypedArray>; // resource in CPU
+  private vertexBuffers: Record<string, GPUBuffer>; // resource in GPU
 
   private resourceAttributes: string[]; // resource name
-  private resourceCPUData: { [x: string]: TypedArray | ImageBitmap | ImageBitmapSource | (ImageBitmap | ImageBitmapSource)[] }; // resource in CPU
-  private resource: { [x: string]: GPUBuffer | GPUTexture | GPUSampler }; // resource in GPU
+  private resourceCPUData: Record<string, BufferData | TextureData | TextureArrayData>; // resource in CPU
+  private resource: Record<string, GPUBuffer | GPUTexture | GPUSampler>; // resource in GPU
 
   constructor(mesh: THREE.Mesh, instanceCount: number) {
 
@@ -34,6 +108,10 @@ class InstancedMesh extends RenderableObject {
     this.instanceCount = instanceCount;
     this.resourceCPUData = { };
 
+  }
+
+  public static RegisterResourceFormats() {
+    ResourceFactory.RegisterFormats(InstancedMesh.ResourceFormats);
   }
 
   public initVertexBuffer() {
@@ -84,13 +162,13 @@ class InstancedMesh extends RenderableObject {
         ...normalMatElements.slice(6, 9), 0
       );
     }
-    this.resourceCPUData.instancedTransform = new Float32Array(transformElements);
+    this.resourceCPUData.instancedTransform = { value: new Float32Array(transformElements) };
 
   }
 
   public setInfo(textureIndices: number[]) {
 
-    this.resourceCPUData.instancedInfo = new Uint32Array(textureIndices);
+    this.resourceCPUData.instancedInfo = { value: new Uint32Array(textureIndices) };
 
   }
 
@@ -98,7 +176,7 @@ class InstancedMesh extends RenderableObject {
 
     let colorElements = [];
     for (let i = 0; i < this.instanceCount; i++) colorElements.push(...colors[i].toArray());
-    this.resourceCPUData.instancedColor = new Float32Array(colorElements);
+    this.resourceCPUData.instancedColor = { value: new Float32Array(colorElements) };
 
   }
 
@@ -108,8 +186,14 @@ class InstancedMesh extends RenderableObject {
   ) {
 
     if (baseMapArray.length != normalMapArray.length) throw new Error('Count of normal maps Should be equal to the count of base maps')
-    this.resourceCPUData.baseMapArray = baseMapArray.map(texture => texture.source.data);
-    this.resourceCPUData.normalMapArray = normalMapArray.map(texture => texture.source.data);
+    this.resourceCPUData.baseMapArray = { 
+      value: baseMapArray.map(texture => texture.source.data),
+      flipY: baseMapArray.map(texture => texture.flipY)
+    };
+    this.resourceCPUData.normalMapArray = { 
+      value: normalMapArray.map(texture => texture.source.data),
+      flipY: normalMapArray.map(texture => texture.flipY)
+    };
 
   }
 

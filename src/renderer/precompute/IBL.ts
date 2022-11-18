@@ -1,6 +1,8 @@
 import { EnvMapResolution } from '../base';
 import { device } from '../renderer';
 import { Constants, Sampling, PBR, ToolFunction } from '../resource/shaderChunk';
+import type { ResourceType } from '../resource/resuorce';
+import { ResourceFactory } from '../resource/resuorce';
 
 const PixelIndex2Direction = /* wgsl */`
 const PixelIndex2DirTransforms = array<mat3x3<f32>, 6>(
@@ -250,6 +252,50 @@ class IBL {
   public static LutResulotion = 64;
   public static EnvMapMipLevelCount = 5;
 
+  private static ResourceFormats = {
+    // Environment
+    envMap: {
+      type: 'cube-texture' as ResourceType,
+      label: 'Skybox Map',
+      visibility: GPUShaderStage.FRAGMENT | GPUShaderStage.COMPUTE,
+      usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT,
+      size: [],
+      dimension: '2d' as GPUTextureDimension,
+      mipLevelCount: IBL.EnvMapMipLevelCount,
+      format: 'rgba8unorm' as GPUTextureFormat,
+      layout: { 
+        sampleType: 'float' as GPUTextureSampleType,
+        viewDimension: 'cube' as GPUTextureViewDimension
+      } as GPUTextureBindingLayout
+    },
+    diffuseEnvMap: {
+      type: 'cube-texture' as ResourceType,
+      label: 'Skybox Map',
+      visibility: GPUShaderStage.FRAGMENT,
+      usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.STORAGE_BINDING,
+      size: [IBL.DiffuseEnvMapResulotion, IBL.DiffuseEnvMapResulotion],
+      dimension: '2d' as GPUTextureDimension,
+      format: 'rgba8unorm' as GPUTextureFormat,
+      layout: { 
+        sampleType: 'float' as GPUTextureSampleType,
+        viewDimension: 'cube' as GPUTextureViewDimension
+      } as GPUTextureBindingLayout
+    },
+    Lut: {
+      type: 'texture' as ResourceType,
+      labal: 'Lut Texture',
+      visibility: GPUShaderStage.FRAGMENT,
+      usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.STORAGE_BINDING,
+      size: [IBL.LutResulotion, IBL.LutResulotion],
+      dimension: '2d' as GPUTextureDimension,
+      format: 'rg32float' as GPUTextureFormat,
+      layout: {
+        sampleType: 'unfilterable-float' as GPUTextureSampleType,
+        viewDimension: '2d' as GPUTextureViewDimension
+      } as GPUTextureBindingLayout
+    },
+  }
+
   private DiffuseEnvComputePipeline: GPUComputePipeline;
   private SpecularEnvComputePipeline: GPUComputePipeline;
   private LutComputePipeline: GPUComputePipeline;
@@ -262,6 +308,10 @@ class IBL {
   private EnvMap: GPUTexture;
 
   constructor() { }
+
+  public static RegisterResourceFormats() {
+    ResourceFactory.RegisterFormats(IBL.ResourceFormats);
+  }
 
   private async initDiffuseEnvComputePipeline(
     globalResource: { [x: string]: GPUBuffer | GPUTexture | GPUSampler }
