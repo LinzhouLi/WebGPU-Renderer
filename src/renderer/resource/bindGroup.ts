@@ -1,4 +1,4 @@
-import { ResourceFormat } from './resuorce';
+import { ResourceFactory } from './resuorce';
 import { device } from '../renderer';
 
 
@@ -15,23 +15,23 @@ class BindGroupFactory {
     let bindIndex = 0;
     for (const attribute of attributes) {
 
-      if (!ResourceFormat[attribute])
+      if (!ResourceFactory.Formats[attribute])
         throw new Error(`Resource Attribute Not Exist: ${attribute}`);
 
-      switch(ResourceFormat[attribute].type) {
+      switch(ResourceFactory.Formats[attribute].type) {
         case 'buffer': { // GPU buffer
           entries.push({
             binding: bindIndex,
-            visibility: ResourceFormat[attribute].visibility,
-            buffer: ResourceFormat[attribute].layout
+            visibility: ResourceFactory.Formats[attribute].visibility,
+            buffer: ResourceFactory.Formats[attribute].layout
           });
           break;
         }
         case 'sampler': { // GPU sampler
           entries.push({
             binding: bindIndex,
-            visibility: ResourceFormat[attribute].visibility,
-            sampler: ResourceFormat[attribute].layout
+            visibility: ResourceFactory.Formats[attribute].visibility,
+            sampler: ResourceFactory.Formats[attribute].layout
           });
           break;
         }
@@ -40,8 +40,8 @@ class BindGroupFactory {
         case 'cube-texture': { // GPU cube texture
           entries.push({
             binding: bindIndex,
-            visibility: ResourceFormat[attribute].visibility,
-            texture: ResourceFormat[attribute].layout
+            visibility: ResourceFactory.Formats[attribute].visibility,
+            texture: ResourceFactory.Formats[attribute].layout
           });
           break;
         }
@@ -73,13 +73,13 @@ class BindGroupFactory {
     let bindIndex = 0;
     for (const attribute of attributes) {
 
-      if (!ResourceFormat[attribute])
+      if (!ResourceFactory.Formats[attribute])
         throw new Error(`Resource Attribute Not Exist: ${attribute}`);
       if (!data[attribute])
         throw new Error(`Resource '${attribute}' Not Exist`);
 
 
-      switch(ResourceFormat[attribute].type) {
+      switch(ResourceFactory.Formats[attribute].type) {
         case 'buffer': { // GPU buffer
           entries.push({
             binding: bindIndex,
@@ -100,7 +100,7 @@ class BindGroupFactory {
           entries.push({
             binding: bindIndex,
             resource: (data[attribute] as GPUTexture).createView({ 
-              dimension: ResourceFormat[attribute].layout.viewDimension || '2d'
+              dimension: ResourceFactory.Formats[attribute].layout.viewDimension || '2d'
             })
           });
           break;

@@ -23,7 +23,7 @@ interface TextureArrayData {
 
 class ResourceFactory {
 
-  private static Formats: { [x: string]: any } = { };
+  public static Formats: { [x: string]: any } = { };
   private resources: WeakMap<
     TypedArray | ImageBitmap | object,
     GPUBuffer | GPUTexture | GPUSampler
@@ -46,6 +46,19 @@ class ResourceFactory {
 
   }
 
+  public async toBitmap(data: ImageBitmapSource | ImageBitmap) {
+    if (data instanceof ImageBitmap) return data;
+    else return await createImageBitmap(data);
+  }
+
+  public toBitmaps(dataArray: (ImageBitmapSource | ImageBitmap)[]) {
+    let results: Promise<ImageBitmap>[] = [];
+    dataArray.forEach(data => {
+      results.push(this.toBitmap(data));
+    });
+    return Promise.all(results);
+  }
+
   public async createResource(
     attributes: string[], 
     data: Record<string, BufferData | TextureData | TextureArrayData>
@@ -62,17 +75,17 @@ class ResourceFactory {
         case 'buffer': { // GPU buffer
           const bufferData = data[attribute] as BufferData;
 
-          let buffer = this.resources.get(bufferData.value);
+          let buffer = this.resources.get(bufferData?.value);
           if (buffer) result[attribute] = buffer;
           else {
             buffer = device.createBuffer({
               label: format.label,
-              size: bufferData.value?.byteLength || bufferData.size || format.size,
+              size: bufferData?.value?.byteLength || bufferData?.size || format.size,
               usage: format.usage
             });
-            if (bufferData.value) {
-              device.queue.writeBuffer(buffer, 0, bufferData.value);
-              this.resources.set(bufferData.value, buffer);
+            if (bufferData?.value) {
+              device.queue.writeBuffer(buffer, 0, bufferData?.value);
+              this.resources.set(bufferData?.value, buffer);
             }
             result[attribute] = buffer;
           }
@@ -98,12 +111,12 @@ class ResourceFactory {
 
         case 'texture': { // GPU texture
           const textureData = data[attribute] as TextureData;
-
-          let texture = this.resources.get(textureData.value);
+          
+          let texture = this.resources.get(textureData?.value);
           if (texture) result[attribute] = texture;
           else {
-            const bitmap = textureData.value;
-            const textureSize = bitmap ? [bitmap.width, bitmap.height] : textureData.size || format.size;
+            const bitmap = textureData?.value;
+            const textureSize = bitmap ? [bitmap.width, bitmap.height] : textureData?.size || format.size;
             texture = device.createTexture({
               label: format.label,
               size: textureSize,
@@ -114,7 +127,7 @@ class ResourceFactory {
             });
             if (bitmap) {
               device.queue.copyExternalImageToTexture(
-                { source: bitmap, flipY: textureData.flipY || false },
+                { source: bitmap, flipY: textureData?.flipY || false },
                 { texture: texture },
                 textureSize
               );
@@ -127,23 +140,24 @@ class ResourceFactory {
 
         case 'cube-texture': {// GPU cube texture\
           const textureArrayData = data[attribute] as TextureArrayData;
-          if (textureArrayData.value) {
+
+          if (textureArrayData?.value) {
             if (textureArrayData.value.length != 6)
               throw new Error('Array Length of cube-texture is Not 6');
           }
-          else (textureArrayData.size && textureArrayData.size[2] != 6)
+          else if (textureArrayData?.size && textureArrayData.size[2] != 6)
             throw new Error('Array Length of cube-texture is Not 6');
         }
         case 'texture-array': { // GPU texture array
           const textureArrayData = data[attribute] as TextureArrayData;
 
-          let textureArray = this.resources.get(textureArrayData.value);
+          let textureArray = this.resources.get(textureArrayData?.value);
           if (textureArray) result[attribute] = textureArray;
           else {
-            const bitmaps = textureArrayData.value;
+            const bitmaps = textureArrayData?.value;
             const textureSize = bitmaps ? 
               [bitmaps[0].width, bitmaps[0].height, bitmaps.length] : 
-              textureArrayData.size || format.size;
+              textureArrayData?.size || format.size;
             textureArray = device.createTexture({
               label: format.label,
               size: textureSize,
@@ -157,7 +171,7 @@ class ResourceFactory {
                 device.queue.copyExternalImageToTexture(
                   { 
                     source: bitmaps[i], 
-                    flipY: textureArrayData.flipY[i] || false 
+                    flipY: textureArrayData?.flipY[i] || false 
                   }, { 
                     texture: textureArray,  // Defines the origin of the copy - the minimum corner of the texture sub-region to copy to/from.
                     origin: [0, 0, i]       // Together with `copySize`, defines the full copy sub-region.

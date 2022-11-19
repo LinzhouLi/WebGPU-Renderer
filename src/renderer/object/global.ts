@@ -126,6 +126,7 @@ class GlobalObject {
         (this.light as THREE.DirectionalLight).target.position
       ).normalize();
 
+    const background = this.scene.background as THREE.CubeTexture;
     this.resourceCPUData = {
       camera: { value: new Float32Array(4 + 16 + 16) }, // update per frame
       [this.lightType]: { 
@@ -136,8 +137,8 @@ class GlobalObject {
         ])
       },
       envMap: { 
-        value: (this.scene.background as THREE.CubeTexture).source.data,
-        flipY: new Array(6).fill((this.scene.background as THREE.CubeTexture).flipY)
+        value: await resourceFactory.toBitmaps(background.image),
+        flipY: new Array(6).fill(background.flipY)
       }
     }
     
@@ -148,7 +149,8 @@ class GlobalObject {
   public update() {
 
     // camera (position, view matrix, projection matrix)
-    (this.resourceCPUData.camera as TypedArray).set([
+    const cameraBufferData = this.resourceCPUData.camera as BufferData;
+    cameraBufferData.value.set([
       ...this.camera.position.toArray(), 0,
       ...this.camera.matrixWorldInverse.toArray(),
       ...this.camera.projectionMatrix.toArray()
@@ -156,7 +158,7 @@ class GlobalObject {
 
     device.queue.writeBuffer(
       this.resource.camera as GPUBuffer,
-      0, this.resourceCPUData.camera as TypedArray
+      0, cameraBufferData.value as TypedArray
     );
 
   }

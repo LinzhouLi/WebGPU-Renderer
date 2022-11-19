@@ -180,18 +180,18 @@ class InstancedMesh extends RenderableObject {
 
   }
 
-  public setTexture(
+  public async setTexture(
     baseMapArray: THREE.Texture[],
     normalMapArray: THREE.Texture[]
   ) {
 
     if (baseMapArray.length != normalMapArray.length) throw new Error('Count of normal maps Should be equal to the count of base maps')
     this.resourceCPUData.baseMapArray = { 
-      value: baseMapArray.map(texture => texture.source.data),
+      value: await resourceFactory.toBitmaps(baseMapArray.map(texture => texture.image)),
       flipY: baseMapArray.map(texture => texture.flipY)
     };
     this.resourceCPUData.normalMapArray = { 
-      value: normalMapArray.map(texture => texture.source.data),
+      value: await resourceFactory.toBitmaps(normalMapArray.map(texture => texture.image)),
       flipY: normalMapArray.map(texture => texture.flipY)
     };
 

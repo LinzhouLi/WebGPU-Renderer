@@ -259,7 +259,7 @@ class IBL {
       label: 'Skybox Map',
       visibility: GPUShaderStage.FRAGMENT | GPUShaderStage.COMPUTE,
       usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT,
-      size: [],
+      size: [EnvMapResolution, EnvMapResolution, 6],
       dimension: '2d' as GPUTextureDimension,
       mipLevelCount: IBL.EnvMapMipLevelCount,
       format: 'rgba8unorm' as GPUTextureFormat,
@@ -273,7 +273,7 @@ class IBL {
       label: 'Skybox Map',
       visibility: GPUShaderStage.FRAGMENT,
       usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.STORAGE_BINDING,
-      size: [IBL.DiffuseEnvMapResulotion, IBL.DiffuseEnvMapResulotion],
+      size: [IBL.DiffuseEnvMapResulotion, IBL.DiffuseEnvMapResulotion, 6],
       dimension: '2d' as GPUTextureDimension,
       format: 'rgba8unorm' as GPUTextureFormat,
       layout: { 

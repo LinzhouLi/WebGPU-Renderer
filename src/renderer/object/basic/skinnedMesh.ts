@@ -5,7 +5,7 @@ import { vertexBufferFactory, resourceFactory, bindGroupFactory } from '../../ba
 import { vertexShaderFactory } from './vertexShader';
 import { fragmentShaderFactory } from './fragmentShader';
 import { Mesh } from './mesh';
-import type { ResourceType } from '../../resource/resuorce';
+import type { ResourceType, BufferData } from '../../resource/resuorce';
 import { ResourceFactory } from '../../resource/resuorce';
 
 const defaultSpecular = new THREE.Vector3(0.5, 0.5, 0.5);
@@ -92,7 +92,7 @@ class SkinnedMesh extends Mesh {
           ...new Array(16 + 12) // update per frame
         ])
       },
-      boneMatrices: { value: new Float32Array(this.boneCount * 16) }, // update per frame
+      boneMatrices: { size: this.boneCount * 16 * 4 }, // update per frame
       PBRMaterial: { 
         value: new Float32Array([
           material.roughness,
@@ -107,7 +107,7 @@ class SkinnedMesh extends Mesh {
     if (!!material.map) {
       this.resourceAttributes.push('baseMap');
       this.resourceCPUData.baseMap = { 
-        value: material.map.source.data, 
+        value: await resourceFactory.toBitmap(material.map.image), 
         flipY: material.map.flipY 
       };
     }
@@ -115,7 +115,7 @@ class SkinnedMesh extends Mesh {
     if (!!material.normalMap) {
       this.resourceAttributes.push('normalMap');
       this.resourceCPUData.normalMap = { 
-        value: material.normalMap.source.data, 
+        value: await resourceFactory.toBitmap(material.normalMap.image), 
         flipY: material.map.flipY 
       };
     }
@@ -123,7 +123,7 @@ class SkinnedMesh extends Mesh {
     if (!!material.metalnessMap) {
       this.resourceAttributes.push('metalnessMap');
       this.resourceCPUData.metalnessMap = { 
-        value: material.metalnessMap.source.data, 
+        value: await resourceFactory.toBitmap(material.metalnessMap.image), 
         flipY: material.map.flipY 
       };
     }
@@ -131,7 +131,7 @@ class SkinnedMesh extends Mesh {
     if (!!material.roughnessMap) {
       this.resourceAttributes.push('roughnessMap');
       this.resourceCPUData.roughnessMap = { 
-        value: material.roughnessMap.source.data, 
+        value: await resourceFactory.toBitmap(material.roughnessMap.image), 
         flipY: material.map.flipY
       };
     }
@@ -208,7 +208,8 @@ class SkinnedMesh extends Mesh {
     this.mesh.normalMatrix.getNormalMatrix(this.mesh.matrixWorld);
     let normalMatArray = this.mesh.normalMatrix.toArray();
     
-    (this.resourceCPUData.skinnedTransform as TypedArray).set([
+    const transformBufferData = this.resourceCPUData.skinnedTransform as BufferData;
+    transformBufferData.value.set([
       ...this.mesh.matrixWorld.toArray(),
       ...normalMatArray.slice(0, 3), 0,
       ...normalMatArray.slice(3, 6), 0,
@@ -216,7 +217,7 @@ class SkinnedMesh extends Mesh {
     ], 32);
     device.queue.writeBuffer( 
       this.resource.skinnedTransform as GPUBuffer, 128, // offsets (byte)
-      this.resourceCPUData.skinnedTransform as TypedArray, 32 // offsets (data)
+      transformBufferData.value, 32 // offsets (data)
     );
 
     // boneMatrix

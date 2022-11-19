@@ -164,7 +164,7 @@ class Mesh extends RenderableObject {
     if (!!material.map) {
       this.resourceAttributes.push('baseMap');
       this.resourceCPUData.baseMap = { 
-        value: material.map.source.data, 
+        value: await resourceFactory.toBitmap(material.map.image), 
         flipY: material.map.flipY 
       };
     }
@@ -172,7 +172,7 @@ class Mesh extends RenderableObject {
     if (!!material.normalMap) {
       this.resourceAttributes.push('normalMap');
       this.resourceCPUData.normalMap = { 
-        value: material.normalMap.source.data, 
+        value: await resourceFactory.toBitmap(material.normalMap.image), 
         flipY: material.map.flipY 
       };
     }
@@ -180,7 +180,7 @@ class Mesh extends RenderableObject {
     if (!!material.metalnessMap) {
       this.resourceAttributes.push('metalnessMap');
       this.resourceCPUData.metalnessMap = { 
-        value: material.metalnessMap.source.data, 
+        value: await resourceFactory.toBitmap(material.metalnessMap.image), 
         flipY: material.map.flipY 
       };
     }
@@ -188,7 +188,7 @@ class Mesh extends RenderableObject {
     if (!!material.roughnessMap) {
       this.resourceAttributes.push('roughnessMap');
       this.resourceCPUData.roughnessMap = { 
-        value: material.roughnessMap.source.data, 
+        value: await resourceFactory.toBitmap(material.roughnessMap.image), 
         flipY: material.map.flipY
       };
     }
@@ -337,7 +337,8 @@ class Mesh extends RenderableObject {
     this.mesh.normalMatrix.getNormalMatrix(this.mesh.matrixWorld);
     let normalMatArray = this.mesh.normalMatrix.toArray();
 
-    (this.resourceCPUData.transform as TypedArray).set([
+    const transformBufferData = this.resourceCPUData.transform as BufferData;
+    transformBufferData.value.set([
       ...this.mesh.matrixWorld.toArray(),
       ...normalMatArray.slice(0, 3), 0,
       ...normalMatArray.slice(3, 6), 0,
@@ -345,7 +346,7 @@ class Mesh extends RenderableObject {
     ]);
     device.queue.writeBuffer( 
       this.resource.transform as GPUBuffer, 0, 
-      this.resourceCPUData.transform as TypedArray, 0
+      transformBufferData.value, 0
     );
 
   }
