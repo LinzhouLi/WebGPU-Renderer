@@ -59,7 +59,7 @@ class Main {
 
     await this.renderer.initWebGPU();
     await this.initScene();
-    // this.renderer.addRenderableObject(this.crowdManager.renderableObject);
+    this.renderer.addRenderableObject(this.crowdManager.renderableObject);
     await this.renderer.initScene(this.scene);
 
   }
@@ -111,7 +111,9 @@ class Main {
       const material = mesh.material as THREE.MeshStandardMaterial;
       material.color = new THREE.Color(1, 1, 1);
       material.map = await loader.loadTexture('crowd/business02.jpg');
+      material.map.flipY = true;
       material.normalMap = await loader.loadTexture('crowd/business02_normal.jpg');
+      material.normalMap.flipY = true;
       material.roughness = 0.5;
       material.metalness = 0.0;
       // let binding = THREE.PropertyBinding.create(mesh, fbx.animations[0].tracks[0].name, false)
@@ -126,6 +128,7 @@ class Main {
       computeMikkTSpaceTangents(mesh.geometry, mikkTSpace);
 
       // animation
+      console.log(fbx.animations[0])
       this.mixer = new THREE.AnimationMixer(fbx);
       const action = this.mixer.clipAction(fbx.animations[0]);
       action.play();
@@ -134,7 +137,7 @@ class Main {
       mesh.skeleton.pose()
       mesh.skeleton.update()
       console.log(mesh.skeleton)
-      this.scene.add( mesh, bone );
+      // this.scene.add( mesh, bone );
     }
 
     {
@@ -270,8 +273,8 @@ class Main {
     //   this.scene.add( mesh );
     // }
 
-    // this.crowdManager = new CrowdManager();
-    // await this.crowdManager.initResource();
+    this.crowdManager = new CrowdManager();
+    await this.crowdManager.initResource();
     
   }
 

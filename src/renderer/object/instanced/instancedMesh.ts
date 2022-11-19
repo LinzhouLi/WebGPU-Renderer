@@ -3,8 +3,8 @@ import { device, canvasFormat } from '../../renderer';
 import type { TypedArray } from '../../base';
 import { vertexBufferFactory, resourceFactory, bindGroupFactory } from '../../base';
 import { RenderableObject } from '../renderableObject';
-import { createVertexShader } from './vertexShader';
-import { createFragmentShader } from './fragmentShader';
+import { vertexShaderFactory } from './vertexShader';
+import { fragmentShaderFactory } from './fragmentShader';
 import type { ResourceType, BufferData, TextureData, TextureArrayData } from '../../resource/resuorce';
 import { ResourceFactory } from '../../resource/resuorce';
 
@@ -86,20 +86,23 @@ class InstancedMesh extends RenderableObject {
     },
   };
 
-  private mesh: THREE.Mesh;
+  protected mesh: THREE.Mesh;
 
-  private renderPipeline: GPURenderPipeline;
-  private shadowPipeline: GPURenderPipeline;
+  protected renderPipeline: GPURenderPipeline;
+  protected shadowPipeline: GPURenderPipeline;
 
-  private instanceCount: number;
-  private vertexCount: number;
-  private vertexBufferAttributes: string[]; // resource name
-  private vertexBufferData: Record<string, TypedArray>; // resource in CPU
-  private vertexBuffers: Record<string, GPUBuffer>; // resource in GPU
+  protected instanceCount: number;
+  protected vertexCount: number;
+  protected vertexBufferAttributes: string[]; // resource name
+  protected vertexBufferData: Record<string, TypedArray>; // resource in CPU
+  protected vertexBuffers: Record<string, GPUBuffer>; // resource in GPU
 
-  private resourceAttributes: string[]; // resource name
-  private resourceCPUData: Record<string, BufferData | TextureData | TextureArrayData>; // resource in CPU
-  private resource: Record<string, GPUBuffer | GPUTexture | GPUSampler>; // resource in GPU
+  protected resourceAttributes: string[]; // resource name
+  protected resourceCPUData: Record<string, BufferData | TextureData | TextureArrayData>; // resource in CPU
+  protected resource: Record<string, GPUBuffer | GPUTexture | GPUSampler>; // resource in GPU
+
+  protected createVertexShader: (slotAttributes: string[], attributes: string[][], pass: ('render' | 'shadow')) => string;
+  protected createFragmentShader: (slotAttributes: string[], attributes: string[][], type: ('phong' | 'PBR')) => string;
 
   constructor(mesh: THREE.Mesh, instanceCount: number) {
 
@@ -107,6 +110,8 @@ class InstancedMesh extends RenderableObject {
     this.mesh = mesh;
     this.instanceCount = instanceCount;
     this.resourceCPUData = { };
+    this.createVertexShader = vertexShaderFactory;
+    this.createFragmentShader = fragmentShaderFactory;
 
   }
 
@@ -154,15 +159,9 @@ class InstancedMesh extends RenderableObject {
         new THREE.Quaternion().setFromEuler(rotations[i]),
         scales[i]
       );
-      let normalMatElements = new THREE.Matrix3().getNormalMatrix(modelMat).toArray();
-      transformElements.push(
-        ...modelMat.toArray(),
-        ...normalMatElements.slice(0, 3), 0,        // AlignOf(mat3x3<f32>) in wgsl is 16.
-        ...normalMatElements.slice(3, 6), 0,        // see https://gpuweb.github.io/gpuweb/wgsl/#alignment
-        ...normalMatElements.slice(6, 9), 0
-      );
+      transformElements.push( ...modelMat.toArray() );
     }
-    this.resourceCPUData.instancedTransform = { value: new Float32Array(transformElements) };
+    this.resourceCPUData.instancedModelMat = { value: new Float32Array(transformElements) };
 
   }
 
@@ -182,10 +181,11 @@ class InstancedMesh extends RenderableObject {
 
   public async setTexture(
     baseMapArray: THREE.Texture[],
-    normalMapArray: THREE.Texture[]
+    normalMapArray: THREE.Texture[] = []
   ) {
 
-    if (baseMapArray.length != normalMapArray.length) throw new Error('Count of normal maps Should be equal to the count of base maps')
+    if (normalMapArray.length > 0 && baseMapArray.length != normalMapArray.length) 
+      throw new Error('Count of normal maps Should be equal to the count of base maps')
     this.resourceCPUData.baseMapArray = { 
       value: await resourceFactory.toBitmaps(baseMapArray.map(texture => texture.image)),
       flipY: baseMapArray.map(texture => texture.flipY)
@@ -199,7 +199,7 @@ class InstancedMesh extends RenderableObject {
 
   public async initGroupResource() {
 
-    this.resourceAttributes = ['instancedTransform', 'instancedColor', 'instancedInfo', 'baseMapArray', 'normalMapArray'];
+    this.resourceAttributes = ['instancedModelMat', 'instancedColor', 'instancedInfo', 'baseMapArray', 'normalMapArray'];
     this.resource = await resourceFactory.createResource(this.resourceAttributes, this.resourceCPUData);
 
   }
@@ -210,16 +210,16 @@ class InstancedMesh extends RenderableObject {
   ) {
 
     const lightType = globalResource.pointLight ? 'pointLight' : 'directionalLight';
+    const globalResourceAttributes = [ 
+      'camera', lightType,
+      'shadowMap', 'envMap', 'diffuseEnvMap',
+      'compareSampler', 'linearSampler',
+      'Lut'
+    ];
 
     const vertexLayout = vertexBufferFactory.createLayout(this.vertexBufferAttributes);
     const gloablBind = bindGroupFactory.create(
-      [ 
-        'camera', lightType, 
-        'shadowMap', 'envMap', 'diffuseEnvMap',
-        'compareSampler', 'linearSampler',
-        'Lut'
-      ],
-      globalResource
+      globalResourceAttributes, globalResource
     );
     const localBind = bindGroupFactory.create(
       this.resourceAttributes, this.resource
@@ -232,14 +232,14 @@ class InstancedMesh extends RenderableObject {
       }),
       vertex: {
         module: device.createShaderModule({ code: 
-          createVertexShader([...this.vertexBufferAttributes, ...this.resourceAttributes], 'render')
+          this.createVertexShader(this.vertexBufferAttributes, [globalResourceAttributes, this.resourceAttributes], 'render')
         }),
         entryPoint: 'main',
         buffers: vertexLayout
       },
       fragment: {
         module: device.createShaderModule({ code: 
-          createFragmentShader([...this.vertexBufferAttributes, ...this.resourceAttributes], 'phong')
+          this.createFragmentShader(this.vertexBufferAttributes, [globalResourceAttributes, this.resourceAttributes], 'PBR')
         }),
         entryPoint: 'main',
         targets: [{ format: canvasFormat }]
@@ -290,21 +290,19 @@ class InstancedMesh extends RenderableObject {
     if (this.vertexBufferAttributes.includes('index')) vertexBufferAttributs.push('index');
 
     const lightType = globalResource.pointLight ? 'pointLight' : 'directionalLight';
+    const resourceAttributes = [lightType, 'instancedModelMat'];
 
     const vertexLayout = vertexBufferFactory.createLayout(vertexBufferAttributs);
-    const { layout, group } = bindGroupFactory.create(
-      [ lightType, 'instancedTransform' ],
-      { ...globalResource, ...this.resource }
-    );
+    const bind = bindGroupFactory.create( resourceAttributes, {...globalResource, ...this.resource} );
     
     this.shadowPipeline = await device.createRenderPipelineAsync({
       label: 'Shadow Pipeline',
       layout: device.createPipelineLayout({ 
-        bindGroupLayouts: [layout] 
+        bindGroupLayouts: [bind.layout] 
       }),
       vertex: {
         module: device.createShaderModule({ code: 
-          createVertexShader([...this.vertexBufferAttributes, ...this.resourceAttributes], 'shadow')
+          this.createVertexShader(vertexBufferAttributs, [resourceAttributes], 'shadow')
         }),
         entryPoint: 'main',
         buffers: vertexLayout
@@ -337,7 +335,7 @@ class InstancedMesh extends RenderableObject {
     }
 
     // set bind group
-    bundleEncoder.setBindGroup(0, group);
+    bundleEncoder.setBindGroup(0, bind.group);
     
     // draw
     if (indexed) bundleEncoder.drawIndexed(this.vertexCount, this.instanceCount);

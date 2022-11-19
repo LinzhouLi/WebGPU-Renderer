@@ -1,10 +1,25 @@
 import { wgsl } from '../../../3rd-party/wgsl-preprocessor';
 import { Definitions } from '../../resource/shaderChunk';
 
-export function createVertexShader(attributes: string[], pass: ('render' | 'shadow' | 'skybox') = 'render') {
+export function vertexShaderFactory(
+  slotAttributes: string[],
+  bindingAttributes: string[][], 
+  pass: ('render' | 'shadow')
+) {
 
-  const tangent = attributes.includes('tangent') && attributes.includes('normalMapArray');
-  const pointLight = attributes.includes('pointLight');
+  let slotLocations = { }, bindingIndices = { };
+  slotAttributes.forEach( (slotAttribute, slotIndex) => 
+    slotLocations[slotAttribute] = `@location(${slotIndex})`
+  );
+  bindingAttributes.forEach(
+    (group, groupIndex) => group.forEach(
+      (binding, bindingIndex) => bindingIndices[binding] = `@group(${groupIndex}) @binding(${bindingIndex})`
+    )
+  );
+
+  const tangent = !!slotLocations['tangent'] && !!bindingIndices['normalMapArray'];
+  const pointLight = !!bindingIndices['pointLight'];
+  const directionalLight = !!bindingIndices['directionalLight'];
 
   let code: string;
 
@@ -12,59 +27,74 @@ export function createVertexShader(attributes: string[], pass: ('render' | 'shad
     code = wgsl
 /* wgsl */`
 ${Definitions.Camera}
+#if ${pointLight}
 ${Definitions.PointLight}
+#endif
+#if ${directionalLight}
 ${Definitions.DirectionalLight}
+#endif
 ${Definitions.Transform}
 
-@group(0) @binding(0) var<uniform> camera: Camera;
+${bindingIndices['camera']} var<uniform> camera: Camera;
 #if ${pointLight}
-@group(0) @binding(1) var<uniform> light: PointLight;
-#else
-@group(0) @binding(1) var<uniform> light: DirectionalLight;
+${bindingIndices['pointLight']} var<uniform> light: PointLight;
+#endif
+#if ${directionalLight}
+${bindingIndices['directionalLight']} var<uniform> light: DirectionalLight;
 #endif
 
-@group(1) @binding(0) var<storage, read> transforms: array<Transform>;
+${bindingIndices['instancedModelMat']} var<storage, read> modelMats: array<mat4x4<f32>>;
 
 struct VertexOutput {
   @builtin(position) position: vec4<f32>,
-  @location(0) fragPosition: vec3<f32>,
-  @location(1) fragNormal: vec3<f32>,
-  @location(2) fragUV: vec2<f32>,
-  @location(3) shadowPos: vec4<f32>,
-  @location(4) @interpolate(flat) index: u32,
+  @location(0) @interpolate(perspective, center) vPosition: vec3<f32>,
+  @location(1) @interpolate(perspective, center) vNormal: vec3<f32>,
+  @location(2) @interpolate(perspective, center) uv: vec2<f32>,
+  @location(3) @interpolate(perspective, center) vShadowPos: vec4<f32>,
+  @location(4) @interpolate(flat) instanceIndex: u32,
 #if ${tangent}
-  @location(5) tangent: vec3<f32>,
-  @location(6) biTangent: vec3<f32>
+  @location(5) @interpolate(perspective, center) vTangent: vec3<f32>,
+  @location(6) @interpolate(perspective, center) vBiTangent: vec3<f32>
 #endif
 };
 
 @vertex
 fn main(
-  @builtin(instance_index) index: u32,
-  @location(0) position : vec3<f32>,
-  @location(1) normal : vec3<f32>,
-  @location(2) uv : vec2<f32>,
+  @builtin(instance_index) instanceIndex: u32,
+  ${slotLocations['position']} position : vec3<f32>,
+  ${slotLocations['normal']} normal : vec3<f32>,
+  ${slotLocations['uv']} uv : vec2<f32>,
 #if ${tangent}
-  @location(3) tangent: vec4<f32>
+  ${slotLocations['tangent']} tangent: vec4<f32>
 #endif
 ) -> VertexOutput {
   
-  let pos = vec4<f32>(position, 1.0);
-  let transform = transforms[index];
-  let outNormal = transform.normalMat * normal;
+  // object space
+  let modelMat = modelMats[instanceIndex];
+  let positionObject = vec4<f32>(position, 1.0);
+  let normalObject = normal;
+  #if ${tangent}
+    let tangentObject = tangent.xyz;
+  #endif
+
+  // world space
+  let positionWorld = modelMat * positionObject;
+  let normalWorld = (modelMat * vec4<f32>(normalObject, 0.0)).xyz;
+  #if ${tangent}
+    let tangentWorld = (modelMat * vec4<f32>(tangentObject, 0.0)).xyz;
+  #endif
   
   var output: VertexOutput;
-  output.position = camera.projectionMat * camera.viewMat * transform.modelMat * pos;
-  output.fragPosition = (transform.modelMat * pos).xyz;
-  output.fragNormal = outNormal;
-  output.fragUV = uv;
-  output.shadowPos = light.viewProjectionMat * transform.modelMat * pos; // 在fragment shader中进行透视除法, 否则插值出错
-  output.index = index;
+  output.position = camera.projectionMat * camera.viewMat * positionWorld;
+  output.vPosition = positionWorld.xyz;
+  output.vNormal = normalWorld;
+  output.uv = uv;
+  output.vShadowPos = light.viewProjectionMat * positionWorld; // @interpolate(perspective, center)
+  output.instanceIndex = instanceIndex;
 
 #if ${tangent}
-  let outTangent = transform.normalMat * tangent.xyz;
-  output.tangent = outTangent;
-  output.biTangent = cross(outNormal, outTangent) * tangent.w; // tangent.w indicates the direction of biTangent
+  output.vTangent = tangentWorld;
+  output.vBiTangent = cross(normalWorld, tangentWorld) * tangent.w; // tangent.w indicates the direction of biTangent
 #endif
 
   return output;
@@ -76,28 +106,30 @@ fn main(
   else if (pass === 'shadow') { // shadow pass
     code = wgsl
 /* wgsl */`
-struct PointLight {
-  position: vec3<f32>,
-  color: vec3<f32>,
-  viewProjectionMat: mat4x4<f32>
-};
+#if ${pointLight}
+${Definitions.PointLight}
+#endif
+#if ${directionalLight}
+${Definitions.DirectionalLight}
+#endif
 
-struct Transform {
-  modelMat: mat4x4<f32>,
-  normalMat : mat3x3<f32>
-};
-
-@group(0) @binding(0) var<uniform> pointLight: PointLight;
-@group(0) @binding(1) var<storage> transforms: array<Transform>;
+#if ${pointLight}
+${bindingIndices['pointLight']} var<uniform> light: PointLight;
+#endif
+#if ${directionalLight}
+${bindingIndices['directionalLight']} var<uniform> light: DirectionalLight;
+#endif
+${bindingIndices['instancedModelMat']} var<storage, read> modelMats: array<mat4x4<f32>>;
 
 @vertex
 fn main(
-  @builtin(instance_index) index: u32,
-  @location(0) position: vec3<f32> 
+  @builtin(instance_index) instanceIndex: u32,
+  ${slotLocations['position']} position : vec3<f32>,
 ) -> @builtin(position) vec4<f32> {
   
-  let pos = vec4<f32>(position, 1.0);
-  return pointLight.viewProjectionMat * transforms[index].modelMat * pos;
+  let positionObject = vec4<f32>(position, 1.0);
+
+  return light.viewProjectionMat * modelMats[instanceIndex] * positionObject;
 
 }
 `

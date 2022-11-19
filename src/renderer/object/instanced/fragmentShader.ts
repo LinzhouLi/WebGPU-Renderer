@@ -3,16 +3,30 @@ import {
   Definitions, Constants, ToolFunction, Shadow, PBR, ACESToneMapping
 } from '../../resource/shaderChunk';
 
-export function createFragmentShader(attributes: string[], type: string = 'phong') {
-  
-  const normalMapArray = attributes.includes('tangent') && attributes.includes('normalMapArray');
-  const baseMapArray = attributes.includes('baseMapArray');
+export function fragmentShaderFactory(
+  slotAttributes: string[],
+  bindingAttributes: string[][], 
+  type: ('phong' | 'PBR') = 'PBR'
+) {
 
-  const pointLight = attributes.includes('pointLight');
+  let bindingIndices = { };
+  bindingAttributes.forEach(
+    (group, groupIndex) => group.forEach(
+      (binding, bindingIndex) => bindingIndices[binding] = `@group(${groupIndex}) @binding(${bindingIndex})`
+    )
+  );
+  
+  const baseMapArray = !!bindingIndices['baseMapArray'];
+  const normalMapArray = slotAttributes.includes('tangent') && !!bindingIndices['normalMapArray'];
+  const roughnessMapArray = !!bindingIndices['roughnessMapArray'];
+  // const metalnessMapArray = !!bindingIndices['metalnessMapArray'];
+  // const specularMapArray = !!bindingIndices['specularMapArray'];
+  const pointLight = !!bindingIndices['pointLight'];
+  const directionalLight = !!bindingIndices['directionalLight'];
 
   let code: string;
 
-  if (type === 'phong') {
+  if (type === 'PBR') {
     code = wgsl
 /* wgsl */`
 ${Definitions.Camera}
@@ -24,29 +38,30 @@ struct InstanceInfo {
   textureIndex: u32
 };
 
-@group(0) @binding(0) var<uniform> camera: Camera;
+${bindingIndices['camera']} var<uniform> camera: Camera;
 #if ${pointLight}
-@group(0) @binding(1) var<uniform> light: PointLight;
-#else
-@group(0) @binding(1) var<uniform> light: DirectionalLight;
+${bindingIndices['pointLight']} var<uniform> light: PointLight;
+#endif
+#if ${directionalLight}
+${bindingIndices['directionalLight']} var<uniform> light: DirectionalLight;
 #endif
 
-@group(0) @binding(2) var shadowMap: texture_depth_2d;
-@group(0) @binding(3) var envMap: texture_cube<f32>;
-@group(0) @binding(4) var diffuseEnvMap: texture_cube<f32>;
+${bindingIndices['shadowMap']} var shadowMap: texture_depth_2d;
+${bindingIndices['envMap']} var envMap: texture_cube<f32>;
+${bindingIndices['diffuseEnvMap']} var diffuseEnvMap: texture_cube<f32>;
 
-@group(0) @binding(5) var compareSampler: sampler_comparison;
-@group(0) @binding(6) var linearSampler: sampler;
+${bindingIndices['compareSampler']} var compareSampler: sampler_comparison;
+${bindingIndices['linearSampler']} var linearSampler: sampler;
 
-@group(0) @binding(7) var Lut: texture_2d<f32>;
+${bindingIndices['Lut']} var Lut: texture_2d<f32>;
 
-@group(1) @binding(1) var<storage, read> instanceColors: array<vec3<f32>>;
-@group(1) @binding(2) var<storage, read> instanceInfos: array<InstanceInfo>;
+${bindingIndices['instancedColor']} var<storage, read> instanceColors: array<vec3<f32>>;
+${bindingIndices['instancedInfo']} var<storage, read> instanceInfos: array<InstanceInfo>;
 #if ${baseMapArray}
-@group(1) @binding(3) var baseMap: texture_2d_array<f32>;
+${bindingIndices['baseMapArray']} var baseMap: texture_2d_array<f32>;
 #endif
 #if ${normalMapArray}
-@group(1) @binding(4) var normalMap: texture_2d_array<f32>;
+${bindingIndices['normalMapArray']} var normalMap: texture_2d_array<f32>;
 #endif
 
 ${Constants}
@@ -61,8 +76,8 @@ ${Shadow.PCF}
 ${PBR.NDF}
 ${PBR.Geometry}
 ${PBR.Fresnel}
-${PBR.Shading}
-${PBR.EnvironmentShading}
+${PBR.PBRShading}
+${PBR.PBREnvShading}
 
 ${ACESToneMapping}
 
@@ -70,57 +85,58 @@ ${ACESToneMapping}
 @fragment
 fn main(
   @builtin(position) position: vec4<f32>,
-  @location(0) fragPosition: vec3<f32>,
-  @location(1) fragNormal: vec3<f32>,
-  @location(2) fragUV: vec2<f32>,
-  @location(3) shadowPos: vec4<f32>,
-  @location(4) @interpolate(flat) index: u32,
+  @location(0) @interpolate(perspective, center) vPosition: vec3<f32>,
+  @location(1) @interpolate(perspective, center) vNormal: vec3<f32>,
+  @location(2) @interpolate(perspective, center) uv: vec2<f32>,
+  @location(3) @interpolate(perspective, center) vShadowPos: vec4<f32>,
+  @location(4) @interpolate(flat) instanceIndex: u32,
 #if ${normalMapArray}
-  @location(5) tangent: vec3<f32>,
-  @location(6) biTangent: vec3<f32>
+  @location(5) @interpolate(perspective, center) vTangent: vec3<f32>,
+  @location(6) @interpolate(perspective, center) vBiTangent: vec3<f32>
 #endif
 ) -> @location(0) vec4<f32> {
 
-  let info = instanceInfos[index];
+  let textureIndex = i32(instanceInfos[instanceIndex].textureIndex);
   // normal
 #if ${normalMapArray}
-  let tbn: mat3x3<f32> = mat3x3<f32>(tangent, biTangent, fragNormal);
-  let normal_del: vec3<f32> = normalize( // transform texture array index from u32 to i32
-    textureSample(normalMap, linearSampler, fragUV, i32(info.textureIndex)).xyz - vec3<f32>(0.5, 0.5, 0.5)
-  );
-  let normal = normalize(tbn * normal_del.xyz);
+  let TBN = mat3x3<f32>(normalize(vTangent), normalize(vBiTangent), normalize(vNormal));
+  let mapNormal = 2.0 * textureSample(normalMap, linearSampler, uv, textureIndex).xyz - 1.0;
+  let normal = TBN * mapNormal;
 #else
-  let normal = fragNormal;
+  let normal = normalize(vNormal);
 #endif
 
   // material
   var localMaterial: PBRMaterial;
-  localMaterial.roughness = 0.5;
   localMaterial.metalness = 0.0;
-#if ${baseMapArray}
-  localMaterial.albedo = textureSample(baseMap, linearSampler, fragUV, i32(info.textureIndex)).xyz * instanceColors[index];
+  localMaterial.roughness = 0.5;
+  
+#if ${baseMapArray} // blbedo
+  localMaterial.albedo = textureSample(baseMap, linearSampler, uv, textureIndex).xyz;
 #else
-  localMaterial.albedo = instanceColors[index];
+  localMaterial.albedo = instanceColors[instanceIndex];
 #endif
 
   // shadow
-  let shadowCoords: vec3<f32> = vec3<f32>(
-    shadowPos.xy / shadowPos.w * vec2<f32>(0.5, -0.5) + 0.5, // Convert shadowPos XY to (0, 1) to fit texture UV
-    shadowPos.z / shadowPos.w
-  );
-  // let visibility = textureSampleCompare(
-  //   shadowMap, shadowMapSampler, 
-  //   shadowCoords.xy, shadowCoords.z - bias
-  // );
-  // let visibility = PCF(5.0, shadowCoords);
-  let visibility = 1.0;
+  let shadowUV = vShadowPos.xy / vShadowPos.w * vec2<f32>(0.5, -0.5) + 0.5;
+  let shadowDepth = vShadowPos.z / vShadowPos.w;
+  // let visibility = 1.0;
+  // let visibility = hardShadow(shadowUV, shadowDepth, shadowMap, compareSampler);
+  let visibility = PCF(shadowUV, shadowDepth, 5.0, shadowMap, compareSampler);
+
+  let viewDir = normalize(camera.position - vPosition);
+  let lightDir = normalize(light.direction);
 
   // Blinn-Phong shading
-  // let shadingColor: vec3<f32> = blinnPhong(fragPosition, normal, albedo);
+  // let directShading = PhongShading(
+  //   normal, viewDir, lightDir,
+  //   localMaterial, light.color
+  // );
+  // let envShading = PhongEnvShading(
+  //   normal, viewDir, localMaterial
+  // );
 
   // PBR shading
-  let viewDir = normalize(camera.position - fragPosition);
-  let lightDir = normalize(light.direction);
   let directShading = PBRShading(
     normal, viewDir, lightDir,
     localMaterial, light.color
@@ -129,8 +145,7 @@ fn main(
     normal, viewDir, localMaterial
   );
 
-  var color: vec3<f32> = (0.7 * directShading * visibility + 0.6 * envShading);
-  // var color: vec3<f32> = envShading;
+  var color: vec3<f32> = (0.7 * directShading * visibility + 0.3 * envShading);
 
   // tone mapping
   color = ACESToneMapping(color);

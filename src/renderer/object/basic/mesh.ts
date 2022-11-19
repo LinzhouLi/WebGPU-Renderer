@@ -282,12 +282,12 @@ class Mesh extends RenderableObject {
     const resourceAttributes = [lightType, 'transform'];
 
     const vertexLayout = vertexBufferFactory.createLayout(vertexBufferAttributs);
-    const Bind = bindGroupFactory.create( resourceAttributes, {...globalResource, ...this.resource} );
+    const bind = bindGroupFactory.create( resourceAttributes, {...globalResource, ...this.resource} );
     
     this.shadowPipeline = await device.createRenderPipelineAsync({
       label: 'Shadow Pipeline',
       layout: device.createPipelineLayout({ 
-        bindGroupLayouts: [Bind.layout] 
+        bindGroupLayouts: [bind.layout] 
       }),
       vertex: {
         module: device.createShaderModule({ code: 
@@ -324,7 +324,7 @@ class Mesh extends RenderableObject {
     }
 
     // set bind group
-    bundleEncoder.setBindGroup(0, Bind.group);
+    bundleEncoder.setBindGroup(0, bind.group);
     
     // draw
     if (indexed) bundleEncoder.drawIndexed(this.vertexCount);
