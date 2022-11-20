@@ -18,7 +18,7 @@ export function fragmentShaderFactory(
   
   const baseMapArray = !!bindingIndices['baseMapArray'];
   const normalMapArray = slotAttributes.includes('tangent') && !!bindingIndices['normalMapArray'];
-  const roughnessMapArray = !!bindingIndices['roughnessMapArray'];
+  // const roughnessMapArray = !!bindingIndices['roughnessMapArray'];
   // const metalnessMapArray = !!bindingIndices['metalnessMapArray'];
   // const specularMapArray = !!bindingIndices['specularMapArray'];
   const pointLight = !!bindingIndices['pointLight'];

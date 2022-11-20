@@ -146,11 +146,24 @@ class InstancedMesh extends RenderableObject {
     
   }
 
+  protected setResource(attribute: string) {
+
+    // @ts-ignore
+    if (this.resource[attribute] && this.resource[attribute].destroy) // @ts-ignore
+      this.resource[attribute].destroy();
+    
+    if (!this.resourceAttributes.includes(attribute))
+      this.resourceAttributes.push(attribute);
+
+  }
+
   public setTransfrom(
     positions: THREE.Vector3[],
     scales: THREE.Vector3[],
     rotations: THREE.Euler[]
   ) {
+
+    this.setResource('instancedModelMat');
 
     let transformElements = [];
     for (let i = 0; i < this.instanceCount; i++) {
@@ -167,11 +180,15 @@ class InstancedMesh extends RenderableObject {
 
   public setInfo(textureIndices: number[]) {
 
+    this.setResource('instancedInfo');
+
     this.resourceCPUData.instancedInfo = { value: new Uint32Array(textureIndices) };
 
   }
 
   public setColor(colors: THREE.Color[]) {
+
+    this.setResource('instancedColor');
 
     let colorElements = [];
     for (let i = 0; i < this.instanceCount; i++) colorElements.push(...colors[i].toArray());
@@ -183,6 +200,9 @@ class InstancedMesh extends RenderableObject {
     baseMapArray: THREE.Texture[],
     normalMapArray: THREE.Texture[] = []
   ) {
+
+    this.setResource('baseMapArray');
+    this.setResource('normalMapArray');
 
     if (normalMapArray.length > 0 && baseMapArray.length != normalMapArray.length) 
       throw new Error('Count of normal maps Should be equal to the count of base maps')
@@ -199,7 +219,6 @@ class InstancedMesh extends RenderableObject {
 
   public async initGroupResource() {
 
-    this.resourceAttributes = ['instancedModelMat', 'instancedColor', 'instancedInfo', 'baseMapArray', 'normalMapArray'];
     this.resource = await resourceFactory.createResource(this.resourceAttributes, this.resourceCPUData);
 
   }

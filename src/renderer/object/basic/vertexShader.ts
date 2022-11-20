@@ -57,6 +57,8 @@ ${bindingIndices['transform']} var<uniform> transform : Transform;
 
 #if ${skinned}
 ${Skinning.Matrices}
+${Skinning.SkinningPostion}
+${Skinning.SkinningNormalMat}
 #endif
 
 struct VertexOutput {
@@ -88,8 +90,8 @@ fn main(
   // object space
 #if ${skinned}
   let skinningMatrices = getSkinningMatrices(skinIndex);
-  ${Skinning.SkinningPostion}
-  ${Skinning.NormalSkinningMat}
+  let positionObject = skinning(position, skinningMatrices, skinWeight, transform.bindMat, transform.bindMatInverse);
+  let normalSkinningMat = getSkinningNormalMat(skinningMatrices, skinWeight, transform.bindMat, transform.bindMatInverse);
   let normalObject = (normalSkinningMat * vec4<f32>(normal, 0.0)).xyz;
   #if ${tangent}
     let tangentObject = (normalSkinningMat * vec4<f32>(tangent.xyz, 0.0)).xyz;
@@ -150,14 +152,15 @@ ${bindingIndices['pointLight']} var<uniform> light: PointLight;
 ${bindingIndices['directionalLight']} var<uniform> light: DirectionalLight;
 #endif
 #if ${skinned}
-${bindingIndices['skinnedTransform']} var<uniform> transform : SkinnedTransform;
-${bindingIndices['boneMatrices']} var<storage, read> boneMatrices : array<mat4x4<f32>>;
+${bindingIndices['skinnedTransform']} var<uniform> transform: SkinnedTransform;
+${bindingIndices['boneMatrices']} var<storage, read> boneMatrices: array<mat4x4<f32>>;
 #else
 ${bindingIndices['transform']} var<uniform> transform : Transform;
 #endif
 
 #if ${skinned}
 ${Skinning.Matrices}
+${Skinning.SkinningPostion}
 #endif
 
 @vertex
@@ -171,7 +174,7 @@ fn main(
 
 #if ${skinned}
   let skinningMatrices = getSkinningMatrices(skinIndex);
-  ${Skinning.SkinningPostion}
+  let positionObject = skinning(position, skinningMatrices, skinWeight, transform.bindMat, transform.bindMatInverse);
 #else
   let positionObject = vec4<f32>(position, 1.0);
 #endif

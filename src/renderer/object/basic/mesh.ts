@@ -18,7 +18,7 @@ class Mesh extends RenderableObject {
     transform: {
       type: 'buffer' as ResourceType,
       label: 'Transform Matrices (mat4x4)',
-      visibility: GPUShaderStage.VERTEX,
+      visibility: GPUShaderStage.VERTEX ,
       usage:  GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
       layout: { 
         type: 'uniform' as GPUBufferBindingType

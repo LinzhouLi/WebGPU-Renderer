@@ -1,5 +1,5 @@
 import { wgsl } from '../../../3rd-party/wgsl-preprocessor';
-import { Definitions } from '../../resource/shaderChunk';
+import { Definitions, Skinning } from '../../resource/shaderChunk';
 
 export function vertexShaderFactory(
   slotAttributes: string[],
@@ -17,6 +17,7 @@ export function vertexShaderFactory(
     )
   );
 
+  const skinned = !!slotLocations['skinIndex'] && !!slotLocations['skinWeight'] && !!bindingIndices['animationInfo'] && !!bindingIndices['animationBuffer'];
   const tangent = !!slotLocations['tangent'] && !!bindingIndices['normalMapArray'];
   const pointLight = !!bindingIndices['pointLight'];
   const directionalLight = !!bindingIndices['directionalLight'];
@@ -35,6 +36,14 @@ ${Definitions.DirectionalLight}
 #endif
 ${Definitions.Transform}
 
+#if ${skinned}
+struct AnimationInfo {
+  boneCount: u32,
+  animationCount: u32,
+  frameOffsets: array<u32>
+}
+#endif
+
 ${bindingIndices['camera']} var<uniform> camera: Camera;
 #if ${pointLight}
 ${bindingIndices['pointLight']} var<uniform> light: PointLight;
@@ -43,7 +52,17 @@ ${bindingIndices['pointLight']} var<uniform> light: PointLight;
 ${bindingIndices['directionalLight']} var<uniform> light: DirectionalLight;
 #endif
 
+#if ${skinned}
+${bindingIndices['animationInfo']} var<uniform> animationInfo: AnimationInfo;
+${bindingIndices['animationBuffer']} var<storage, read> animationBuffer: array<mat4x4<f32>>;
+#endif
 ${bindingIndices['instancedModelMat']} var<storage, read> modelMats: array<mat4x4<f32>>;
+
+#if ${skinned}
+${Skinning.InstanceMatrices}
+${Skinning.SkinningPostion}
+${Skinning.SkinningNormalMat}
+#endif
 
 struct VertexOutput {
   @builtin(position) position: vec4<f32>,
@@ -64,6 +83,10 @@ fn main(
   ${slotLocations['position']} position : vec3<f32>,
   ${slotLocations['normal']} normal : vec3<f32>,
   ${slotLocations['uv']} uv : vec2<f32>,
+#if ${skinned}
+  ${slotLocations['skinIndex']} skinIndex: vec4<u32>,
+  ${slotLocations['skinWeight']} skinWeight: vec4<f32>,
+#endif
 #if ${tangent}
   ${slotLocations['tangent']} tangent: vec4<f32>
 #endif
@@ -71,11 +94,22 @@ fn main(
   
   // object space
   let modelMat = modelMats[instanceIndex];
+#if ${skinned}
+  let skinningMatrices = getSkinningMatrices(skinIndex, 0, 10);
+  let positionObject = skinning(position, skinningMatrices, skinWeight, transform.bindMat, transform.bindMatInverse);
+  let normalSkinningMat = getSkinningNormalMat(skinningMatrices, skinWeight, transform.bindMat, transform.bindMatInverse);
+  let normalObject = (normalSkinningMat * vec4<f32>(normal, 0.0)).xyz;
+  #if ${tangent}
+    let tangentObject = (normalSkinningMat * vec4<f32>(tangent.xyz, 0.0)).xyz;
+  #endif
+#endif
+#if ${!skinned}
   let positionObject = vec4<f32>(position, 1.0);
   let normalObject = normal;
   #if ${tangent}
     let tangentObject = tangent.xyz;
   #endif
+#endif
 
   // world space
   let positionWorld = modelMat * positionObject;
@@ -113,21 +147,47 @@ ${Definitions.PointLight}
 ${Definitions.DirectionalLight}
 #endif
 
+#if ${skinned}
+struct AnimationInfo {
+  boneCount: u32,
+  animationCount: u32,
+  frameOffsets: array<u32>
+}
+#endif
+
 #if ${pointLight}
 ${bindingIndices['pointLight']} var<uniform> light: PointLight;
 #endif
 #if ${directionalLight}
 ${bindingIndices['directionalLight']} var<uniform> light: DirectionalLight;
 #endif
+#if ${skinned}
+${bindingIndices['animationInfo']} var<uniform> animationInfo: AnimationInfo;
+${bindingIndices['animationBuffer']} var<storage, read> animationBuffer: array<mat4x4<f32>>;
+#endif
 ${bindingIndices['instancedModelMat']} var<storage, read> modelMats: array<mat4x4<f32>>;
+
+#if ${skinned}
+${Skinning.InstanceMatrices}
+${Skinning.SkinningPostion}
+#endif
 
 @vertex
 fn main(
   @builtin(instance_index) instanceIndex: u32,
   ${slotLocations['position']} position : vec3<f32>,
+#if ${skinned}
+  ${slotLocations['skinIndex']} skinIndex: vec4<u32>,
+  ${slotLocations['skinWeight']} skinWeight: vec4<f32>,
+#endif
 ) -> @builtin(position) vec4<f32> {
-  
+
+#if ${skinned}
+  let skinningMatrices = getSkinningMatrices(skinIndex, 0, 10);
+  let positionObject = skinning(position, skinningMatrices, skinWeight, transform.bindMat, transform.bindMatInverse);
+#else
   let positionObject = vec4<f32>(position, 1.0);
+#endif
 
   return light.viewProjectionMat * modelMats[instanceIndex] * positionObject;
 

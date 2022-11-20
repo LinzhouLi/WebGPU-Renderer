@@ -490,24 +490,53 @@ fn getSkinningMatrices(skinIndex: vec4<u32>) -> array<mat4x4<f32>, 4> {
 }
 `;
 
+const InstanceMatrices = /* wgsl */`
+fn getSkinningMatrices(
+  skinIndex: vec4<u32>, 
+  animationIndex: u32,
+  frameIndex: u32
+) -> array<mat4x4<f32>, 4> {
+  let offset = (animationInfo.frameOffsets[animationIndex] + frameIndex) * animationInfo.boneCount;
+  return array<mat4x4<f32>, 4>(
+    boneMatrices[skinIndex.x + offset], boneMatrices[skinIndex.y + offset],
+    boneMatrices[skinIndex.z + offset], boneMatrices[skinIndex.w + offset]
+  );
+}
+`;
+
 const SkinningPostion = /* wgsl */`
-  let positionSkin = transform.bindMat * vec4<f32>(position, 1.0);
-  var positionObject = skinningMatrices[0] * positionSkin * skinWeight[0];
-  positionObject = positionObject + skinningMatrices[1] * positionSkin * skinWeight[1];
-  positionObject = positionObject + skinningMatrices[2] * positionSkin * skinWeight[2];
-  positionObject = positionObject + skinningMatrices[3] * positionSkin * skinWeight[3];
-  positionObject = transform.bindMatInverse * positionObject;
+fn skinning(
+  position: vec3<f32>,
+  skinningMatrices: array<mat4x4<f32>, 4>,
+  skinWeight: vec4<f32>,
+  bindMat: mat4x4<f32>,
+  bindMatInverse: mat4x4<f32>
+) -> vec4<f32> {
+  let positionSkin = bindMat * vec4<f32>(position, 1.0);
+  var result = skinningMatrices[0] * positionSkin * skinWeight[0];
+  result = result + skinningMatrices[1] * positionSkin * skinWeight[1];
+  result = result + skinningMatrices[2] * positionSkin * skinWeight[2];
+  result = result + skinningMatrices[3] * positionSkin * skinWeight[3];
+  return bindMatInverse * result;
+}
 `;
 
-const NormalSkinningMat = /* wgsl */`
-  var normalSkinningMat = skinningMatrices[0] * skinWeight[0];
-  normalSkinningMat = normalSkinningMat + skinningMatrices[1] * skinWeight[1];
-  normalSkinningMat = normalSkinningMat + skinningMatrices[2] * skinWeight[2];
-  normalSkinningMat = normalSkinningMat + skinningMatrices[3] * skinWeight[3];
-  normalSkinningMat = transform.bindMatInverse * normalSkinningMat * transform.bindMat;
+const SkinningNormalMat = /* wgsl */`
+fn getSkinningNormalMat(
+  skinningMatrices: array<mat4x4<f32>, 4>,
+  skinWeight: vec4<f32>,
+  bindMat: mat4x4<f32>,
+  bindMatInverse: mat4x4<f32>
+) -> mat4x4<f32> {
+  var result = skinningMatrices[0] * skinWeight[0];
+  result = normalSkinningMat + skinningMatrices[1] * skinWeight[1];
+  result = normalSkinningMat + skinningMatrices[2] * skinWeight[2];
+  result = normalSkinningMat + skinningMatrices[3] * skinWeight[3];
+  return bindMatInverse * normalSkinningMat * bindMat;
+}
 `;
 
-const Skinning = { Matrices, SkinningPostion, NormalSkinningMat };
+const Skinning = { Matrices, SkinningPostion, InstanceMatrices, SkinningNormalMat };
 
 
 export { 

@@ -44,8 +44,8 @@ class Main {
       // this.webglRenderer.render(this.scene, this.camera);
       this.renderer.update();
       this.renderer.draw();
-      const delta = this.clock.getDelta();
-      this.mixer.update(delta);
+      // const delta = this.clock.getDelta();
+      // this.mixer.update(delta);
 
       this.stats.end();
       requestAnimationFrame(render);
@@ -59,7 +59,7 @@ class Main {
 
     await this.renderer.initWebGPU();
     await this.initScene();
-    this.renderer.addRenderableObject(this.crowdManager.renderableObject);
+    // this.renderer.addRenderableObject(this.crowdManager.renderableObject);
     await this.renderer.initScene(this.scene);
 
   }
@@ -103,40 +103,40 @@ class Main {
 
     // mesh
     {
-      const fbx = await loader.loadFBX('crowd/male_walk.fbx');
-      // console.log(fbx)
-      const bone = fbx.children[1];
-      const mesh = fbx.children[0] as THREE.SkinnedMesh;
-      mesh.bindMode = 'detached';
-      const material = mesh.material as THREE.MeshStandardMaterial;
-      material.color = new THREE.Color(1, 1, 1);
-      material.map = await loader.loadTexture('crowd/business02.jpg');
-      material.map.flipY = true;
-      material.normalMap = await loader.loadTexture('crowd/business02_normal.jpg');
-      material.normalMap.flipY = true;
-      material.roughness = 0.5;
-      material.metalness = 0.0;
-      // let binding = THREE.PropertyBinding.create(mesh, fbx.animations[0].tracks[0].name, false)
+      // const fbx = await loader.loadFBX('crowd/male_walk.fbx');
+      // // console.log(fbx)
+      // const bone = fbx.children[1];
+      // const mesh = fbx.children[0] as THREE.SkinnedMesh;
+      // mesh.bindMode = 'detached';
+      // const material = mesh.material as THREE.MeshStandardMaterial;
+      // material.color = new THREE.Color(1, 1, 1);
+      // material.map = await loader.loadTexture('crowd/business02.jpg');
+      // material.map.flipY = true;
+      // material.normalMap = await loader.loadTexture('crowd/business02_normal.jpg');
+      // material.normalMap.flipY = true;
+      // material.roughness = 0.5;
+      // material.metalness = 0.0;
+      // // let binding = THREE.PropertyBinding.create(mesh, fbx.animations[0].tracks[0].name, false)
 
-      // calculate tangent
-      await MikkTSpace.ready;
-      const mikkTSpace = {
-        wasm: MikkTSpace.wasm,
-        isReady: MikkTSpace.isReady,
-        generateTangents: MikkTSpace.generateTangents
-      }
-      computeMikkTSpaceTangents(mesh.geometry, mikkTSpace);
+      // // calculate tangent
+      // await MikkTSpace.ready;
+      // const mikkTSpace = {
+      //   wasm: MikkTSpace.wasm,
+      //   isReady: MikkTSpace.isReady,
+      //   generateTangents: MikkTSpace.generateTangents
+      // }
+      // computeMikkTSpaceTangents(mesh.geometry, mikkTSpace);
 
-      // animation
-      console.log(fbx.animations[0])
-      this.mixer = new THREE.AnimationMixer(fbx);
-      const action = this.mixer.clipAction(fbx.animations[0]);
-      action.play();
-      mesh.scale.set(0.01, 0.01, 0.01)
-      mesh.rotation.set(-0.5 * Math.PI, 0, Math.PI)
-      mesh.skeleton.pose()
-      mesh.skeleton.update()
-      console.log(mesh.skeleton)
+      // // animation
+      // console.log(fbx.animations[0])
+      // this.mixer = new THREE.AnimationMixer(fbx);
+      // const action = this.mixer.clipAction(fbx.animations[0]);
+      // action.play();
+      // mesh.scale.set(0.01, 0.01, 0.01)
+      // mesh.rotation.set(-0.5 * Math.PI, 0, Math.PI)
+      // mesh.skeleton.pose()
+      // mesh.skeleton.update()
+      // console.log(mesh.skeleton)
       // this.scene.add( mesh, bone );
     }
 

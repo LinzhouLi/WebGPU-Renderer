@@ -27,7 +27,7 @@ class CrowdManager {
     color: THREE.Color[]
   };
 
-  private mesh: THREE.Mesh;
+  public mesh: THREE.SkinnedMesh;
   public renderableObject: InstancedMesh;
 
   constructor() { }
@@ -57,12 +57,55 @@ class CrowdManager {
 
   }
 
+  private initAnimation(animations: THREE.AnimationClip[], rootBone: THREE.Bone) {
+
+    let animationData: Float32Array[][] = [];
+
+    const skeleton = this.mesh.skeleton;
+    const boneCount = skeleton.bones.length;
+    skeleton.pose();
+
+    animations.forEach(animation => {
+
+      const frameData: Float32Array[] = [];
+
+      const frameCount = animation.tracks[0].times.length;
+
+      const boneBindings = animation.tracks.map(track => THREE.PropertyBinding.create(this.mesh, track.name))
+      
+      for (let frameIndex = 0; frameIndex < frameCount; frameIndex++) {
+
+        animation.tracks.forEach((track, trackIndex) => {
+          const boneBinding = boneBindings[trackIndex] as THREE.PropertyBinding;
+          if (boneBinding.node.isBone) // except bone nub
+            boneBinding.setValue(track.values, frameIndex * track.getValueSize());
+        });
+        rootBone.updateMatrixWorld(true);
+        skeleton.update();
+
+        frameData.push(skeleton.boneMatrices.slice(0, boneCount * 16)); // per frame
+
+      }
+
+      animationData.push(frameData); // per animation
+
+    });
+    
+    return animationData;
+
+  }
+
   public async initResource() {
 
     // load mesh
-    const fbx = await loader.loadFBX('crowd/male_walk.fbx');
-    // const bone = fbx.children[1];
-    this.mesh = fbx.children[0] as THREE.SkinnedMesh;
+    const group = await loader.loadFBX('crowd/male_walk.fbx');
+    this.mesh = group.children[0] as THREE.SkinnedMesh;
+    
+    // animation
+    const bone = group.children[1];
+    this.mesh.bindMode = 'detached';
+    const animationData = this.initAnimation(group.animations, bone);
+    
 
     // calculate tangent
     await MikkTSpace.ready;
