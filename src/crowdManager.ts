@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { computeMikkTSpaceTangents } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import * as MikkTSpace from 'three/examples/jsm/libs/mikktspace.module.js';
-import { InstancedMesh } from './renderer/object/instanced/instancedMesh';
+import { InstancedSkinnedMesh } from './renderer/object/instanced/instancedSkinnedMesh';
 import { loader } from './loader';
 
 const baseMapPromises: Promise<THREE.Texture>[] = [
@@ -28,13 +28,13 @@ class CrowdManager {
   };
 
   public mesh: THREE.SkinnedMesh;
-  public renderableObject: InstancedMesh;
+  public renderableObject: InstancedSkinnedMesh;
 
   constructor() { }
 
   private initParameter() {
     
-    const row = 10, col = 10;
+    const row = 4, col = 4;
     this.avatarCount = row * col;
 
     this.avatarParam = {
@@ -126,11 +126,12 @@ class CrowdManager {
     this.initParameter();
     
     // set resources
-    this.renderableObject = new InstancedMesh(this.mesh, this.avatarCount);
+    this.renderableObject = new InstancedSkinnedMesh(this.mesh, this.avatarCount);
     this.renderableObject.setTransfrom(this.avatarParam.position, this.avatarParam.scale, this.avatarParam.rotation);
     this.renderableObject.setInfo(this.avatarParam.textureIndex);
     this.renderableObject.setColor(this.avatarParam.color);
     this.renderableObject.setTexture(baseMapArray, normalMapArray);
+    this.renderableObject.setAnimation(animationData);
 
   }
 

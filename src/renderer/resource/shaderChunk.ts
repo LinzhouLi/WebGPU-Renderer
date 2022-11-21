@@ -496,10 +496,10 @@ fn getSkinningMatrices(
   animationIndex: u32,
   frameIndex: u32
 ) -> array<mat4x4<f32>, 4> {
-  let offset = (animationInfo.frameOffsets[animationIndex] + frameIndex) * animationInfo.boneCount;
+  let offset = (u32(animationInfo.frameOffsets[animationIndex]) + frameIndex) * u32(animationInfo.boneCount);
   return array<mat4x4<f32>, 4>(
-    boneMatrices[skinIndex.x + offset], boneMatrices[skinIndex.y + offset],
-    boneMatrices[skinIndex.z + offset], boneMatrices[skinIndex.w + offset]
+    animationBuffer[skinIndex.x + offset], animationBuffer[skinIndex.y + offset],
+    animationBuffer[skinIndex.z + offset], animationBuffer[skinIndex.w + offset]
   );
 }
 `;
@@ -529,10 +529,10 @@ fn getSkinningNormalMat(
   bindMatInverse: mat4x4<f32>
 ) -> mat4x4<f32> {
   var result = skinningMatrices[0] * skinWeight[0];
-  result = normalSkinningMat + skinningMatrices[1] * skinWeight[1];
-  result = normalSkinningMat + skinningMatrices[2] * skinWeight[2];
-  result = normalSkinningMat + skinningMatrices[3] * skinWeight[3];
-  return bindMatInverse * normalSkinningMat * bindMat;
+  result = result + skinningMatrices[1] * skinWeight[1];
+  result = result + skinningMatrices[2] * skinWeight[2];
+  result = result + skinningMatrices[3] * skinWeight[3];
+  return bindMatInverse * result * bindMat;
 }
 `;
 

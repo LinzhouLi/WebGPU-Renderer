@@ -59,7 +59,7 @@ class Main {
 
     await this.renderer.initWebGPU();
     await this.initScene();
-    // this.renderer.addRenderableObject(this.crowdManager.renderableObject);
+    this.renderer.addRenderableObject(this.crowdManager.renderableObject);
     await this.renderer.initScene(this.scene);
 
   }

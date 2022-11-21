@@ -21,7 +21,7 @@ export function vertexShaderFactory(
   const tangent = !!slotLocations['tangent'] && !!bindingIndices['normalMapArray'];
   const pointLight = !!bindingIndices['pointLight'];
   const directionalLight = !!bindingIndices['directionalLight'];
-
+  
   let code: string;
 
   if (pass === 'render') { // render pass
@@ -34,13 +34,14 @@ ${Definitions.PointLight}
 #if ${directionalLight}
 ${Definitions.DirectionalLight}
 #endif
-${Definitions.Transform}
 
 #if ${skinned}
 struct AnimationInfo {
-  boneCount: u32,
-  animationCount: u32,
-  frameOffsets: array<u32>
+  boneCount: f32,
+  animationCount: f32,
+  bindMat: mat4x4<f32>,
+  bindMatInverse: mat4x4<f32>,
+  frameOffsets: array<f32>
 }
 #endif
 
@@ -53,7 +54,7 @@ ${bindingIndices['directionalLight']} var<uniform> light: DirectionalLight;
 #endif
 
 #if ${skinned}
-${bindingIndices['animationInfo']} var<uniform> animationInfo: AnimationInfo;
+${bindingIndices['animationInfo']} var<storage, read> animationInfo: AnimationInfo;
 ${bindingIndices['animationBuffer']} var<storage, read> animationBuffer: array<mat4x4<f32>>;
 #endif
 ${bindingIndices['instancedModelMat']} var<storage, read> modelMats: array<mat4x4<f32>>;
@@ -96,8 +97,8 @@ fn main(
   let modelMat = modelMats[instanceIndex];
 #if ${skinned}
   let skinningMatrices = getSkinningMatrices(skinIndex, 0, 10);
-  let positionObject = skinning(position, skinningMatrices, skinWeight, transform.bindMat, transform.bindMatInverse);
-  let normalSkinningMat = getSkinningNormalMat(skinningMatrices, skinWeight, transform.bindMat, transform.bindMatInverse);
+  let positionObject = skinning(position, skinningMatrices, skinWeight, animationInfo.bindMat, animationInfo.bindMatInverse);
+  let normalSkinningMat = getSkinningNormalMat(skinningMatrices, skinWeight, animationInfo.bindMat, animationInfo.bindMatInverse);
   let normalObject = (normalSkinningMat * vec4<f32>(normal, 0.0)).xyz;
   #if ${tangent}
     let tangentObject = (normalSkinningMat * vec4<f32>(tangent.xyz, 0.0)).xyz;
@@ -151,6 +152,8 @@ ${Definitions.DirectionalLight}
 struct AnimationInfo {
   boneCount: u32,
   animationCount: u32,
+  bindMat: mat4x4<f32>,
+  bindMatInverse: mat4x4<f32>,
   frameOffsets: array<u32>
 }
 #endif
@@ -162,7 +165,7 @@ ${bindingIndices['pointLight']} var<uniform> light: PointLight;
 ${bindingIndices['directionalLight']} var<uniform> light: DirectionalLight;
 #endif
 #if ${skinned}
-${bindingIndices['animationInfo']} var<uniform> animationInfo: AnimationInfo;
+${bindingIndices['animationInfo']} var<storage, read> animationInfo: AnimationInfo;
 ${bindingIndices['animationBuffer']} var<storage, read> animationBuffer: array<mat4x4<f32>>;
 #endif
 ${bindingIndices['instancedModelMat']} var<storage, read> modelMats: array<mat4x4<f32>>;
@@ -184,7 +187,7 @@ fn main(
 
 #if ${skinned}
   let skinningMatrices = getSkinningMatrices(skinIndex, 0, 10);
-  let positionObject = skinning(position, skinningMatrices, skinWeight, transform.bindMat, transform.bindMatInverse);
+  let positionObject = skinning(position, skinningMatrices, skinWeight, animationInfo.bindMat, animationInfo.bindMatInverse);
 #else
   let positionObject = vec4<f32>(position, 1.0);
 #endif

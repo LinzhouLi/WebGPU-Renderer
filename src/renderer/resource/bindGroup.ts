@@ -61,7 +61,8 @@ class BindGroupFactory {
   create(
     attributes: string[], 
     data: { [x: string]: GPUBuffer | GPUTexture | GPUSampler },
-    groupLayout: GPUBindGroupLayout | null = null
+    groupLayout: GPUBindGroupLayout | null = null,
+    groupLabel: string = undefined
   ) {
 
     let layout: GPUBindGroupLayout;
@@ -113,7 +114,10 @@ class BindGroupFactory {
 
     }
 
-    let group = device.createBindGroup({ layout, entries });
+    let bindGroupDescriptor: GPUBindGroupDescriptor;
+    if (groupLabel) bindGroupDescriptor = { label: groupLabel, layout, entries };
+    else bindGroupDescriptor = { layout, entries };
+    let group = device.createBindGroup(bindGroupDescriptor);
     
     return { layout, group };
 

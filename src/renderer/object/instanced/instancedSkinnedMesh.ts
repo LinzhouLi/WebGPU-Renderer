@@ -25,9 +25,9 @@ class InstancedSkinnedMesh extends InstancedMesh {
       type: 'buffer' as ResourceType,
       label: 'Animation Info (boneCount, animationCount, frameOffset)',
       visibility: GPUShaderStage.VERTEX,
-      usage:  GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+      usage:  GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
       layout: {
-        type: 'uniform' as GPUBufferBindingType
+        type: 'read-only-storage' as GPUBufferBindingType
       } as GPUBufferBindingLayout
     }
   }
@@ -101,11 +101,14 @@ class InstancedSkinnedMesh extends InstancedMesh {
         );
       });
     });
-
+    
     this.resourceCPUData.animationInfo = { 
-      value: new Uint32Array([
+      value: new Float32Array([
         this.boneCount,
         animationCount,
+        0, 0, // implicit member alignment padding. see https://gpuweb.github.io/gpuweb/wgsl/#structure-member-layout
+        ...this.mesh.bindMatrix.toArray(),
+        ...this.mesh.bindMatrixInverse.toArray(),
         ...frameOffsets
       ])
     };
@@ -118,14 +121,14 @@ class InstancedSkinnedMesh extends InstancedMesh {
     globalResource: { [x: string]: GPUBuffer | GPUTexture | GPUSampler }
   ) {
 
-    let vertexBufferAttributs = ['position'];
+    let vertexBufferAttributs = ['position', 'skinIndex', 'skinWeight'];
     if (this.vertexBufferAttributes.includes('index')) vertexBufferAttributs.push('index');
 
     const lightType = globalResource.pointLight ? 'pointLight' : 'directionalLight';
     const resourceAttributes = [lightType, 'instancedModelMat', 'animationInfo', 'animationBuffer'];
 
     const vertexLayout = vertexBufferFactory.createLayout(vertexBufferAttributs);
-    const bind = bindGroupFactory.create( resourceAttributes, {...globalResource, ...this.resource} );
+    const bind = bindGroupFactory.create( resourceAttributes, {...globalResource, ...this.resource}, null, 'shadow' );
     
     this.shadowPipeline = await device.createRenderPipelineAsync({
       label: 'Shadow Pipeline',

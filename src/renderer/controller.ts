@@ -5,6 +5,7 @@ import { GlobalObject } from './object/global';
 import { Mesh } from './object/basic/mesh';
 import { SkinnedMesh } from './object/basic/skinnedMesh';
 import { InstancedMesh } from './object/instanced/instancedMesh';
+import { InstancedSkinnedMesh } from './object/instanced/InstancedSkinnedMesh';
 import { Skybox } from './object/skybox';
 import { IBL } from './precompute/IBL';
 
@@ -98,6 +99,7 @@ class RenderController {
     Mesh.RegisterResourceFormats();
     SkinnedMesh.RegisterResourceFormats();
     InstancedMesh.RegisterResourceFormats();
+    InstancedSkinnedMesh.RegisterResourceFormats();
   }
 
   private updateMatrix() {

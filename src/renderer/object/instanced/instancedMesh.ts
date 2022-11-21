@@ -109,7 +109,9 @@ class InstancedMesh extends RenderableObject {
     super();
     this.mesh = mesh;
     this.instanceCount = instanceCount;
+    this.resourceAttributes = [];
     this.resourceCPUData = { };
+    this.resource = { };
     this.createVertexShader = vertexShaderFactory;
     this.createFragmentShader = fragmentShaderFactory;
 
@@ -149,7 +151,7 @@ class InstancedMesh extends RenderableObject {
   protected setResource(attribute: string) {
 
     // @ts-ignore
-    if (this.resource[attribute] && this.resource[attribute].destroy) // @ts-ignore
+    if (this.resource[attribute] && this.resource[attribute]?.destroy) // @ts-ignore
       this.resource[attribute].destroy();
     
     if (!this.resourceAttributes.includes(attribute))
@@ -238,10 +240,10 @@ class InstancedMesh extends RenderableObject {
 
     const vertexLayout = vertexBufferFactory.createLayout(this.vertexBufferAttributes);
     const gloablBind = bindGroupFactory.create(
-      globalResourceAttributes, globalResource
+      globalResourceAttributes, globalResource, null, 'global'
     );
     const localBind = bindGroupFactory.create(
-      this.resourceAttributes, this.resource
+      this.resourceAttributes, this.resource, null, 'local'
     );
     
     this.renderPipeline = await device.createRenderPipelineAsync({
