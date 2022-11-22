@@ -159,7 +159,7 @@ fn main(
     normal, viewDir, localMaterial
   );
 
-  var color: vec3<f32> = (0.7 * directShading * visibility + 0.3 * envShading);
+  var color: vec3<f32> = (0.7 * directShading * visibility + 1.3 * envShading);
 
   // tone mapping
   color = ACESToneMapping(color);

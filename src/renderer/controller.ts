@@ -1,7 +1,7 @@
 import * as THREE from 'three';
-import { device, canvasFormat } from './renderer';
+import { device, canvasFormat, canvasSize } from './renderer';
 import { RenderableObject } from './object/renderableObject';
-import { GlobalObject } from './object/global';
+import { GlobalResource } from './globalResource';
 import { Mesh } from './object/basic/mesh';
 import { SkinnedMesh } from './object/basic/skinnedMesh';
 import { InstancedMesh } from './object/instanced/instancedMesh';
@@ -78,7 +78,10 @@ class RenderController {
   private camera: THREE.PerspectiveCamera;
   private light: THREE.PointLight | THREE.DirectionalLight;
 
-  public globalObject: GlobalObject;
+  private renderDepthMapView: GPUTextureView;
+  private shadowMapView: GPUTextureView;
+
+  public globalResource: GlobalResource;
   public objectList: RenderableObject[];
   
   public iBL: IBL;
@@ -89,28 +92,16 @@ class RenderController {
   constructor() {
 
     this.objectList = [];
-    this.RegisterResourceFormats();
 
   }
 
   private RegisterResourceFormats() {
     IBL.RegisterResourceFormats();
-    GlobalObject.RegisterResourceFormats();
+    GlobalResource.RegisterResourceFormats();
     Mesh.RegisterResourceFormats();
     SkinnedMesh.RegisterResourceFormats();
     InstancedMesh.RegisterResourceFormats();
     InstancedSkinnedMesh.RegisterResourceFormats();
-  }
-
-  private updateMatrix() {
-
-    this.scene.updateMatrixWorld();
-    this.camera.updateProjectionMatrix();
-
-    this.light.shadow.camera.position.setFromMatrixPosition( this.light.matrixWorld );
-    this.light.shadow.camera.updateMatrixWorld();
-    this.light.shadow.camera.updateProjectionMatrix();
-    
   }
 
   public addRenderableObject(obj: RenderableObject) {
@@ -148,32 +139,39 @@ class RenderController {
     
     if (this.camera === null) throw new Error('No Camera');
     if (this.light === null) throw new Error('No Light');
-    this.globalObject = new GlobalObject(this.camera, this.light, this.scene);
+    this.globalResource = new GlobalResource(this.camera, this.light, this.scene);
 
     this.iBL = new IBL();
 
   }
 
   public async initResources() {
+    
+    this.RegisterResourceFormats();
 
     // update information
     this.updateMatrix();
 
-    await this.globalObject.initResource();
+    // global and local resources
+    await this.globalResource.initResource();
     this.objectList.push(new Skybox()); // render skybox at last
     for (const meshObject of this.objectList) {
       meshObject.initVertexBuffer();
       await meshObject.initGroupResource();
     }
 
-    // pre compute
-    await this.iBL.initComputePipeline(this.globalObject.resource);
+    // render attachments
+    this.renderDepthMapView = (this.globalResource.resource.renderDepthMap as GPUTexture).createView();
+    this.shadowMapView = (this.globalResource.resource.shadowMap as GPUTexture).createView();
+
+    // pre compute resource
     await this.precompute();
 
   }
 
   public async precompute() {
     
+    await this.iBL.initComputePipeline(this.globalResource.resource);
     device.queue.submit([
       this.iBL.run()
     ]);
@@ -191,7 +189,7 @@ class RenderController {
     });
 
     for (const meshObject of this.objectList) {
-      await meshObject.setRenderBundle(renderBundleEncoder, this.globalObject.resource);
+      await meshObject.setRenderBundle(renderBundleEncoder, this.globalResource.resource);
     }
 
     this.renderBundle = renderBundleEncoder.finish();
@@ -207,17 +205,70 @@ class RenderController {
     });
 
     for (const meshObject of this.objectList) {
-      await meshObject.setShadowBundle(shadowBundleEncoder, this.globalObject.resource);
+      await meshObject.setShadowBundle(shadowBundleEncoder, this.globalResource.resource);
     }
 
     this.shadowBundle = shadowBundleEncoder.finish();
 
   }
 
+  public draw(contextView: GPUTextureView) {
+
+    const commandEncoder = device.createCommandEncoder();
+
+    // shadow pass
+    const shadowPassEncoder = commandEncoder.beginRenderPass({
+      colorAttachments: [],
+      depthStencilAttachment: {
+        view: this.shadowMapView,
+        depthClearValue: 1.0,
+        depthLoadOp: 'clear',
+        depthStoreOp: 'store',
+      }
+    });
+    shadowPassEncoder.executeBundles([this.shadowBundle]);
+    shadowPassEncoder.end();
+
+    // render pass
+    const renderPassEncoder = commandEncoder.beginRenderPass({
+      colorAttachments: [{
+        view: contextView, // getCurrentTexture(): Destroyed texture [Texture] used in a submit
+        clearValue: { r: 0, g: 0, b: 0, a: 1.0 },
+        loadOp: 'clear',
+        storeOp: 'store'
+      }],
+      depthStencilAttachment: {
+        view: this.renderDepthMapView,
+        depthClearValue: 1.0,
+        depthLoadOp: 'clear',
+        depthStoreOp: 'store',
+      }
+    });
+    renderPassEncoder.executeBundles([this.renderBundle]);
+    renderPassEncoder.end();
+
+    // post process
+
+    const commandBuffer = commandEncoder.finish();
+    device.queue.submit([commandBuffer]);
+
+  }
+
+  private updateMatrix() {
+
+    this.scene.updateMatrixWorld();
+    this.camera.updateProjectionMatrix();
+
+    this.light.shadow.camera.position.setFromMatrixPosition( this.light.matrixWorld );
+    this.light.shadow.camera.updateMatrixWorld();
+    this.light.shadow.camera.updateProjectionMatrix();
+    
+  }
+
   public update() {
 
     this.updateMatrix();
-    this.globalObject.update();
+    this.globalResource.update();
     for (const meshObject of this.objectList) meshObject.update();
 
   }

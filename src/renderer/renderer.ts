@@ -4,18 +4,16 @@ import { RenderableObject } from './object/renderableObject';
 
 let device: GPUDevice;
 let canvasFormat: GPUTextureFormat;
+let canvasSize: { width: number, height: number };
 
 class Renderer {
 
   // basic
-  private size: { width: number, height: number };
   private canvas: HTMLCanvasElement;
   private context: GPUCanvasContext;
 
   // resource
   private controller: RenderController;
-  private shadowMap: GPUTexture;
-  private renderDepthMap: GPUTexture;
 
   constructor(canvas: HTMLCanvasElement) {
 
@@ -44,7 +42,7 @@ class Renderer {
     this.context = context;
 
     // size
-    this.size = { width: this.canvas.width, height: this.canvas.height };
+    canvasSize = { width: this.canvas.width, height: this.canvas.height };
 
     // format
     canvasFormat = navigator.gpu.getPreferredCanvasFormat();
@@ -70,53 +68,11 @@ class Renderer {
     await this.controller.initRenderPass();
     await this.controller.initShadowPass();
 
-    this.shadowMap = this.controller.globalObject.resource.shadowMap as GPUTexture;
-    this.renderDepthMap = device.createTexture({
-      label: 'Render Depth Map',
-      size: this.size,
-      usage: GPUTextureUsage.RENDER_ATTACHMENT,
-      format: 'depth32float'
-    });
-
   }
 
   public draw() {
 
-    const commandEncoder = device.createCommandEncoder();
-
-    // shadow pass
-    const shadowPassEncoder = commandEncoder.beginRenderPass({
-      colorAttachments: [],
-      depthStencilAttachment: {
-        view: this.shadowMap.createView(),
-        depthClearValue: 1.0,
-        depthLoadOp: 'clear',
-        depthStoreOp: 'store',
-      }
-    });
-    shadowPassEncoder.executeBundles([this.controller.shadowBundle]);
-    shadowPassEncoder.end();
-
-    // render pass
-    const renderPassEncoder = commandEncoder.beginRenderPass({
-      colorAttachments: [{
-        view: this.context.getCurrentTexture().createView(), // getCurrentTexture(): Destroyed texture [Texture] used in a submit
-        clearValue: { r: 0, g: 0, b: 0, a: 1.0 },
-        loadOp: 'clear',
-        storeOp: 'store'
-      }],
-      depthStencilAttachment: {
-        view: this.renderDepthMap.createView(),
-        depthClearValue: 1.0,
-        depthLoadOp: 'clear',
-        depthStoreOp: 'store',
-      }
-    });
-    renderPassEncoder.executeBundles([this.controller.renderBundle]);
-    renderPassEncoder.end();
-
-    const commandBuffer = commandEncoder.finish();
-    device.queue.submit([commandBuffer]);
+    this.controller.draw(this.context.getCurrentTexture().createView());
 
   }
 
@@ -128,4 +84,4 @@ class Renderer {
 
 }
 
-export { Renderer, device, canvasFormat };
+export { Renderer, device, canvasFormat, canvasSize };

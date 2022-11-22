@@ -58,7 +58,10 @@ class Loader {
     ) => {
       this.loaderTexture.load(
         path,
-        texture => resolve(texture), // onLoad
+        texture => { // onLoad
+          texture.flipY = false; // flipY default is true
+          resolve(texture);
+        }, 
         null, // onProgress
         error => reject(error) // onError
       )

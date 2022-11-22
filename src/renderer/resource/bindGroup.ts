@@ -74,13 +74,15 @@ class BindGroupFactory {
     let bindIndex = 0;
     for (const attribute of attributes) {
 
-      if (!ResourceFactory.Formats[attribute])
+      const format = ResourceFactory.Formats[attribute];
+
+      if (!format)
         throw new Error(`Resource Attribute Not Exist: ${attribute}`);
       if (!data[attribute])
         throw new Error(`Resource '${attribute}' Not Exist`);
 
 
-      switch(ResourceFactory.Formats[attribute].type) {
+      switch(format.type) {
         case 'buffer': { // GPU buffer
           entries.push({
             binding: bindIndex,
@@ -100,8 +102,9 @@ class BindGroupFactory {
         case 'cube-texture': { // GPU cube texture
           entries.push({
             binding: bindIndex,
-            resource: (data[attribute] as GPUTexture).createView({ 
-              dimension: ResourceFactory.Formats[attribute].layout.viewDimension || '2d'
+            resource: (data[attribute] as GPUTexture).createView({
+              format: format.format,
+              dimension: format.layout.viewDimension || '2d'
             })
           });
           break;
