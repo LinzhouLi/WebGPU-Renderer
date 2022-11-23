@@ -1,4 +1,4 @@
-import { canvasFormat, device } from '../renderer';
+import { device } from '../renderer';
 import {
   vertexBufferFactory,
   bindGroupFactory

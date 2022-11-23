@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { device, canvasFormat } from './renderer';
+import { device } from './renderer';
 import { RenderableObject } from './object/renderableObject';
 import { GlobalResource } from './globalResource';
 import { Mesh } from './object/basic/mesh';

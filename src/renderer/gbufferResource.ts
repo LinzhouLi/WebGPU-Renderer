@@ -5,12 +5,14 @@ import { ResourceFactory } from './resource/resuorce';
 
 class GBUfferResource {
 
-  public static Formats: Record<string, GPUTextureFormat> = {
-    GBuffer0: 'rgba8unorm',
-    canvas: canvasFormat
-  };
+  public static Formats: Record<string, GPUTextureFormat>;
 
   public static RegisterResourceFormats() {
+    GBUfferResource.Formats = {
+      GBuffer0: 'rgba8unorm',
+      canvas: canvasFormat
+    }
+
     ResourceFactory.RegisterFormats({
 
       // for post processing (no binding)

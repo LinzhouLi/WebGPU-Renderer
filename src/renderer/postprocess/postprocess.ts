@@ -11,10 +11,9 @@ struct VertexOutput {
   @location(0) @interpolate(linear, center) gbufferCoord: vec2<f32>
 };
 
-const coords = array<vec2<f32>, 6>(
+const coords = array<vec2<f32>, 4>(
   vec2<f32>(-1.0, -1.0), vec2<f32>( 1.0, -1.0),
-  vec2<f32>(-1.0,  1.0), vec2<f32>(-1.0,  1.0),
-  vec2<f32>( 1.0, -1.0), vec2<f32>( 1.0,  1.0)
+  vec2<f32>(-1.0,  1.0), vec2<f32>( 1.0,  1.0)
 );
 
 @vertex
@@ -22,8 +21,8 @@ fn main(@builtin(vertex_index) index: u32) -> VertexOutput {
   let coord = coords[index];
   var output: VertexOutput;
   output.position = vec4<f32>(coord, 0.0, 1.0);
-  output.gbufferCoord = (coord + 1.0) * vec2<f32>(screenWidth, screenHeight) * 0.5;
-  return output
+  output.gbufferCoord = (coord * vec2<f32>(0.5, -0.5) + 0.5) * vec2<f32>(screenWidth, screenHeight);
+  return output;
 }
 `;
 
@@ -110,14 +109,14 @@ class PostProcess {
         targets: targetStates
       },
       primitive: {
-        topology: 'triangle-list',
+        topology: 'triangle-strip',
         cullMode: 'none'
       }
     });
     
     bundleEncoder.setPipeline(this.pipeline);
     bundleEncoder.setBindGroup(0, group);
-    bundleEncoder.draw(6);
+    bundleEncoder.draw(4);
 
     this.bundle = bundleEncoder.finish();
     

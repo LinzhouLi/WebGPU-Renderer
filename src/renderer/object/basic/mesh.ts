@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { device, canvasFormat } from '../../renderer';
+import { device } from '../../renderer';
 import type { TypedArray } from '../../base';
 import { vertexBufferFactory, resourceFactory, bindGroupFactory } from '../../base';
 import { RenderableObject } from '../renderableObject';
