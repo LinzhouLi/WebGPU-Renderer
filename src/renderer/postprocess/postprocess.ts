@@ -1,7 +1,6 @@
-import { device, canvasSize, canvasFormat } from '../renderer';
-import { resourceFactory, bindGroupFactory } from '../base';
-import type { ResourceType, BufferData, TextureData, TextureArrayData } from '../resource/resuorce';
-import { ResourceFactory } from '../resource/resuorce';
+import { device, canvasSize } from '../renderer';
+import { bindGroupFactory } from '../base';
+import { GBUfferResource } from '../gbufferResource';
 
 const vertexShader = /* wgsl */`
 override screenWidth: f32;
@@ -12,8 +11,15 @@ struct VertexOutput {
   @location(0) @interpolate(linear, center) gbufferCoord: vec2<f32>
 };
 
+const coords = array<vec2<f32>, 6>(
+  vec2<f32>(-1.0, -1.0), vec2<f32>( 1.0, -1.0),
+  vec2<f32>(-1.0,  1.0), vec2<f32>(-1.0,  1.0),
+  vec2<f32>( 1.0, -1.0), vec2<f32>( 1.0,  1.0)
+);
+
 @vertex
-fn main(@location(0) coord: vec2<f32>) -> VertexOutput {
+fn main(@builtin(vertex_index) index: u32) -> VertexOutput {
+  let coord = coords[index];
   var output: VertexOutput;
   output.position = vec4<f32>(coord, 0.0, 1.0);
   output.gbufferCoord = (coord + 1.0) * vec2<f32>(screenWidth, screenHeight) * 0.5;
@@ -21,24 +27,16 @@ fn main(@location(0) coord: vec2<f32>) -> VertexOutput {
 }
 `;
 
-const fragmentShader = /* wgsl */`
-@group(0) @binding(0) var gbuffer0: texture_2d<f32>;
-
-@fragment
-fn main(@location(0) @interpolate(linear, center) gbufferCoord: vec2<f32>) -> @location(0) vec4<f32> {
-  let coord = vec2<i32>(gbufferCoord);
-  return textureLoad(gbuffer0, coord, 0);
-}
-`;
-
 class PostProcess {
 
-  protected 
+  public inputGBuffers: string[];
+  public outputGBuffers: string[];
+
   protected vertexShaderCode: string;
   protected fragmentShaderCode: string;
 
-  protected renderPipeline: GPURenderPipeline;
-  protected vertexPositionBuffer: GPUBuffer;
+  protected pipeline: GPURenderPipeline;
+  protected bundle: GPURenderBundle;
 
   constructor() {
 
@@ -46,20 +44,54 @@ class PostProcess {
 
   }
 
+  public execute (
+    commandEncoder: GPUCommandEncoder,
+    gbufferViews: Record<string, GPUTextureView>
+  ) {
+
+    const targetAttachments = this.outputGBuffers.map(attribute => {
+      return {
+        view: gbufferViews[attribute],
+        clearValue: { r: 0, g: 0, b: 0, a: 1.0 },
+        loadOp: 'clear',
+        storeOp: 'store'
+      } as GPURenderPassColorAttachment
+    })
+
+    const renderPassEncoder = commandEncoder.beginRenderPass({
+      colorAttachments: targetAttachments
+    });
+
+    renderPassEncoder.executeBundles([this.bundle]);
+    renderPassEncoder.end();
+
+  }
+
+  protected setBindGroup(
+    globalResource: Record<string, GPUBuffer | GPUTexture | GPUSampler>,
+    gbufferResource: Record<string, GPUBuffer | GPUTexture | GPUSampler>
+  ) {
+    return bindGroupFactory.create( this.inputGBuffers, gbufferResource );
+  }
+
   public async setRenderBundle(
-    bundleEncoder: GPURenderBundleEncoder,
     globalResource: Record<string, GPUBuffer | GPUTexture | GPUSampler>,
     gbufferResource: Record<string, GPUBuffer | GPUTexture | GPUSampler>
   ) {
 
-    // bind group (GBuffer)
-    const { layout, group } = bindGroupFactory.create(
-      ['GBuffer0'],
-      gbufferResource
+    const targetFormats = this.outputGBuffers.map(
+      attribute => GBUfferResource.Formats[attribute] as GPUTextureFormat
     );
+    const targetStates = targetFormats.map(targetFormat => { 
+      return { format: targetFormat } as GPUColorTargetState
+    });
+
+    const bundleEncoder = device.createRenderBundleEncoder({ colorFormats: targetFormats });
+
+    // bind group (GBuffer)
+    const { layout, group } = this.setBindGroup(globalResource, gbufferResource);
     
-    
-    this.renderPipeline = await device.createRenderPipelineAsync({
+    this.pipeline = await device.createRenderPipelineAsync({
       label: 'Render Pipeline',
       layout: device.createPipelineLayout({ 
         bindGroupLayouts: [layout]
@@ -70,28 +102,29 @@ class PostProcess {
           screenWidth: canvasSize.width,
           screenHeight: canvasSize.height
         },
-        entryPoint: 'main',
-        buffers: [{
-          arrayStride: 2 * 4,
-          attributes: [{ shaderLocation: 0, offset: 0, format: 'float32x2' }]
-        }]
+        entryPoint: 'main'
       },
       fragment: {
         module: device.createShaderModule({ code: this.fragmentShaderCode }),
         entryPoint: 'main',
-        targets: [{ format: canvasFormat }]
+        targets: targetStates
       },
       primitive: {
-        topology: 'triangle-strip',
+        topology: 'triangle-list',
         cullMode: 'none'
       }
     });
     
-    bundleEncoder.setPipeline(this.renderPipeline);
-    bundleEncoder.setVertexBuffer(0, gbufferResource.postProcessVertexBuffer as GPUBuffer);
+    bundleEncoder.setPipeline(this.pipeline);
     bundleEncoder.setBindGroup(0, group);
     bundleEncoder.draw(6);
+
+    this.bundle = bundleEncoder.finish();
     
+  }
+
+  public update(gbufferResource: Record<string, GPUBuffer | GPUTexture | GPUSampler>) {
+
   }
 
 }

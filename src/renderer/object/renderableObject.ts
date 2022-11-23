@@ -8,6 +8,7 @@ abstract class RenderableObject {
 
   public abstract setRenderBundle(
     bundleEncoder: GPURenderBundleEncoder,
+    targetStates: Iterable<GPUColorTargetState | null>,
     globalResource: { [x: string]: GPUBuffer | GPUTexture | GPUSampler }
   ): Promise<void>;
 

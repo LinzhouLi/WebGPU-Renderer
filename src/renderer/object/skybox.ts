@@ -89,6 +89,7 @@ class Skybox extends RenderableObject {
 
   public async setRenderBundle(
     bundleEncoder: GPURenderBundleEncoder,
+    targetStates: Iterable<GPUColorTargetState | null>,
     globalResource: { [x: string]: GPUBuffer | GPUTexture | GPUSampler }
   ) {
 
@@ -109,7 +110,7 @@ class Skybox extends RenderableObject {
       fragment: {
         module: device.createShaderModule({ code: skyboxFragmentShader }),
         entryPoint: 'main',
-        targets: [{ format: canvasFormat }]
+        targets: targetStates
       },
       primitive: {
         topology: 'triangle-list',

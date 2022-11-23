@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { device, canvasFormat, canvasSize } from './renderer';
+import { device, canvasFormat } from './renderer';
 import { RenderableObject } from './object/renderableObject';
 import { GlobalResource } from './globalResource';
 import { Mesh } from './object/basic/mesh';
@@ -8,6 +8,9 @@ import { InstancedMesh } from './object/instanced/instancedMesh';
 import { InstancedSkinnedMesh } from './object/instanced/InstancedSkinnedMesh';
 import { Skybox } from './object/skybox';
 import { IBL } from './precompute/IBL';
+import { GBUfferResource } from './gbufferResource';
+import { DeferredShading } from './postprocess/deferredShading';
+import { PostProcess } from './postprocess/postprocess';
 
 // console.info( 'THREE.WebGPURenderer: Modified Matrix4.makePerspective() and Matrix4.makeOrtographic() to work with WebGPU, see https://github.com/mrdoob/three.js/issues/20276.' );
 // @ts-ignore
@@ -82,9 +85,13 @@ class RenderController {
   private shadowMapView: GPUTextureView;
 
   public globalResource: GlobalResource;
+  public gbufferResource: GBUfferResource;
+
   public objectList: RenderableObject[];
   
   public iBL: IBL;
+
+  public postprocesses: PostProcess[];
 
   public shadowBundle: GPURenderBundle;
   public renderBundle: GPURenderBundle;
@@ -98,6 +105,7 @@ class RenderController {
   private RegisterResourceFormats() {
     IBL.RegisterResourceFormats();
     GlobalResource.RegisterResourceFormats();
+    GBUfferResource.RegisterResourceFormats();
     Mesh.RegisterResourceFormats();
     SkinnedMesh.RegisterResourceFormats();
     InstancedMesh.RegisterResourceFormats();
@@ -139,9 +147,17 @@ class RenderController {
     
     if (this.camera === null) throw new Error('No Camera');
     if (this.light === null) throw new Error('No Light');
-    this.globalResource = new GlobalResource(this.camera, this.light, this.scene);
 
+    this.globalResource = new GlobalResource(this.camera, this.light, this.scene);
+    this.gbufferResource = new GBUfferResource();
+
+    // pre compute
     this.iBL = new IBL();
+
+    // post process
+    this.postprocesses = [
+      new DeferredShading()
+    ];
 
   }
 
@@ -152,15 +168,18 @@ class RenderController {
     // update information
     this.updateMatrix();
 
-    // global and local resources
+    // global and gbuffer resources
     await this.globalResource.initResource();
+    await this.gbufferResource.initResource();
+
+    // per object resources
     this.objectList.push(new Skybox()); // render skybox at last
     for (const meshObject of this.objectList) {
       meshObject.initVertexBuffer();
       await meshObject.initGroupResource();
     }
 
-    // render attachments
+    // render attachments (render pass and shadow pass)
     this.renderDepthMapView = (this.globalResource.resource.renderDepthMap as GPUTexture).createView();
     this.shadowMapView = (this.globalResource.resource.shadowMap as GPUTexture).createView();
 
@@ -182,14 +201,25 @@ class RenderController {
 
   public async initRenderPass() {
 
+    const targetFormats = this.postprocesses[0].inputGBuffers.map(
+      attribute => GBUfferResource.Formats[attribute] as GPUTextureFormat
+    );
+    const targetStates = targetFormats.map(targetFormat => {
+      return { format: targetFormat } as GPUColorTargetState
+    });
+
     const renderBundleEncoder = device.createRenderBundleEncoder({
       label: 'Render Pass',
-      colorFormats: [canvasFormat],
+      colorFormats: targetFormats,
       depthStencilFormat: 'depth32float'
     });
 
     for (const meshObject of this.objectList) {
-      await meshObject.setRenderBundle(renderBundleEncoder, this.globalResource.resource);
+      await meshObject.setRenderBundle(
+        renderBundleEncoder, 
+        targetStates,
+        this.globalResource.resource
+      );
     }
 
     this.renderBundle = renderBundleEncoder.finish();
@@ -212,7 +242,19 @@ class RenderController {
 
   }
 
+  public async initPostProcessPasses() {
+
+    let promises = this.postprocesses.map(postprocess => 
+      postprocess.setRenderBundle(this.globalResource.resource, this.gbufferResource.resource)
+    );
+
+    return Promise.all(promises);
+
+  }
+
   public draw(contextView: GPUTextureView) {
+
+    this.gbufferResource.views.canvas = contextView; // update canvas texture view
 
     const commandEncoder = device.createCommandEncoder();
 
@@ -230,13 +272,17 @@ class RenderController {
     shadowPassEncoder.end();
 
     // render pass
-    const renderPassEncoder = commandEncoder.beginRenderPass({
-      colorAttachments: [{
-        view: contextView, // getCurrentTexture(): Destroyed texture [Texture] used in a submit
+    const targetAttachments = this.postprocesses[0].inputGBuffers.map(attribute => {
+      return {
+        view: this.gbufferResource.views[attribute],
         clearValue: { r: 0, g: 0, b: 0, a: 1.0 },
         loadOp: 'clear',
         storeOp: 'store'
-      }],
+      } as GPURenderPassColorAttachment
+    });
+
+    const renderPassEncoder = commandEncoder.beginRenderPass({
+      colorAttachments: targetAttachments,
       depthStencilAttachment: {
         view: this.renderDepthMapView,
         depthClearValue: 1.0,
@@ -248,6 +294,10 @@ class RenderController {
     renderPassEncoder.end();
 
     // post process
+    this.postprocesses.forEach(postprocess => {
+      postprocess.execute(commandEncoder, this.gbufferResource.views);
+      postprocess.update(this.gbufferResource.resource);
+    })
 
     const commandBuffer = commandEncoder.finish();
     device.queue.submit([commandBuffer]);

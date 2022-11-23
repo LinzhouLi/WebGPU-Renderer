@@ -67,6 +67,7 @@ class Renderer {
     await this.controller.initResources();
     await this.controller.initRenderPass();
     await this.controller.initShadowPass();
+    await this.controller.initPostProcessPasses();
 
   }
 

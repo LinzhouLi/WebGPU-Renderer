@@ -199,6 +199,7 @@ class Mesh extends RenderableObject {
 
   public async setRenderBundle(
     bundleEncoder: GPURenderBundleEncoder,
+    targetStates: Iterable<GPUColorTargetState | null>,
     globalResource: { [x: string]: GPUBuffer | GPUTexture | GPUSampler }
   ) {
 
@@ -231,7 +232,7 @@ class Mesh extends RenderableObject {
           this.createFragmentShader(this.vertexBufferAttributes, [globalResourceAttributes, this.resourceAttributes], 'PBR')
         }),
         entryPoint: 'main',
-        targets: [{ format: canvasFormat }]
+        targets: targetStates,
       },
       primitive: {
         topology: 'triangle-list',
