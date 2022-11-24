@@ -9,7 +9,7 @@ import { InstancedSkinnedMesh } from './object/instanced/InstancedSkinnedMesh';
 import { Skybox } from './object/skybox';
 import { IBL } from './precompute/IBL';
 import { GBUfferResource } from './gbufferResource';
-import { DeferredShading } from './postprocess/deferredShading';
+import { ToneMapping } from './postprocess/toneMapping';
 import { PostProcess } from './postprocess/postprocess';
 
 // console.info( 'THREE.WebGPURenderer: Modified Matrix4.makePerspective() and Matrix4.makeOrtographic() to work with WebGPU, see https://github.com/mrdoob/three.js/issues/20276.' );
@@ -156,7 +156,7 @@ class RenderController {
 
     // post process
     this.postprocesses = [
-      new DeferredShading()
+      new ToneMapping()
     ];
 
   }

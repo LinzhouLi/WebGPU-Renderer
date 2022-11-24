@@ -1,4 +1,4 @@
-import { device, canvasSize, canvasFormat } from './renderer';
+import { canvasSize, canvasFormat } from './renderer';
 import { resourceFactory } from './base';
 import type { ResourceType } from './resource/resuorce';
 import { ResourceFactory } from './resource/resuorce';
@@ -9,7 +9,7 @@ class GBUfferResource {
 
   public static RegisterResourceFormats() {
     GBUfferResource.Formats = {
-      GBuffer0: 'rgba8unorm',
+      GBuffer0: 'rgba32float',
       canvas: canvasFormat
     }
 
@@ -25,12 +25,12 @@ class GBUfferResource {
       // GBuffer
       GBuffer0: {
         type: 'texture' as ResourceType,
-        label: 'GBuffer1: ',
+        label: 'GBuffer0: ',
         visibility: GPUShaderStage.FRAGMENT,
         usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
         size: [canvasSize.width, canvasSize.height],
         dimension: '2d' as GPUTextureDimension,
-        format: GBUfferResource.Formats[0],
+        format: GBUfferResource.Formats.GBuffer0 as GPUTextureFormat,
         layout: { // for post process
           sampleType: 'unfilterable-float' as GPUTextureSampleType,
           viewDimension: '2d' as GPUTextureViewDimension,

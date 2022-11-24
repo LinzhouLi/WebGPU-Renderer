@@ -448,7 +448,19 @@ fn PhongEnvShading(
 const Phong = { PhongShading, PhongEnvShading };
 
 
-// tone mapping
+// color management
+
+const sRGBGammaEncode = /* wgsl */`
+fn sRGBGammaEncode(color: vec3<f32>) -> vec3<f32> {
+  return pow(color, vec3<f32>(0.454545));  // 1 / 2.2
+}
+`;
+
+const sRGBGammaDecode = /* wgsl */`
+fn sRGBGammaDecode(color: vec3<f32>) -> vec3<f32> {
+  return pow(color, vec3<f32>(2.2));
+}
+`;
 
 const ACESToneMapping = /* wgsl */`
 // ACES Tone Mapping, see https://github.com/TheRealMJP/BakingLab/blob/master/BakingLab/ACES.hlsl
@@ -477,6 +489,8 @@ fn ACESToneMapping(color: vec3<f32>) -> vec3<f32> {
   return saturate(color_);
 }
 `;
+
+const ColorManagement = { sRGBGammaEncode, sRGBGammaDecode, ACESToneMapping };
 
 
 // animation
@@ -542,6 +556,7 @@ const Skinning = { Matrices, SkinningPostion, InstanceMatrices, SkinningNormalMa
 export { 
   Definitions, Constants, 
   ToolFunction, Sampling,
-  Shadow, PBR, Phong, ACESToneMapping,
+  Shadow, PBR, Phong, 
+  ColorManagement,
   Skinning
 };

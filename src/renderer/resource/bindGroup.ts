@@ -103,7 +103,7 @@ class BindGroupFactory {
           entries.push({
             binding: bindIndex,
             resource: (data[attribute] as GPUTexture).createView({
-              format: format.format,
+              format: format.viewFormat || format.format,
               dimension: format.layout.viewDimension || '2d'
             })
           });

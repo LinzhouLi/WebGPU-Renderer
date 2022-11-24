@@ -117,14 +117,16 @@ class ResourceFactory {
           else {
             const bitmap = textureData?.value;
             const textureSize = bitmap ? [bitmap.width, bitmap.height] : textureData?.size || format.size;
-            texture = device.createTexture({
+            let textureDescriptor = {
               label: format.label,
               size: textureSize,
               mipLevelCount: format.mipLevelCount || 1,
               dimension: format.dimension || '2d',
-              format: format.format || 'rgba8unorm',
+              format: format.format,
               usage: format.usage
-            });
+            } as GPUTextureDescriptor;
+            if (format.viewFormat) textureDescriptor.viewFormats = [format.viewFormat];
+            texture = device.createTexture(textureDescriptor);
             if (bitmap) {
               device.queue.copyExternalImageToTexture(
                 { source: bitmap, flipY: textureData?.flipY || false },
@@ -158,14 +160,16 @@ class ResourceFactory {
             const textureSize = bitmaps ? 
               [bitmaps[0].width, bitmaps[0].height, bitmaps.length] : 
               textureArrayData?.size || format.size;
-            textureArray = device.createTexture({
+            let textureDescriptor = {
               label: format.label,
               size: textureSize,
               mipLevelCount: format.mipLevelCount || 1,
               dimension: format.dimension || '2d',
-              format: format.format || 'rgba8unorm',
+              format: format.format,
               usage: format.usage
-            });
+            } as GPUTextureDescriptor;
+            if (format.viewFormat) textureDescriptor.viewFormats = [format.viewFormat];
+            textureArray = device.createTexture(textureDescriptor);
             if (bitmaps) {
               for (let i = 0; i < bitmaps.length; i++) {
                 device.queue.copyExternalImageToTexture(

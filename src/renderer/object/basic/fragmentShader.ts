@@ -1,6 +1,6 @@
 import { wgsl } from '../../../3rd-party/wgsl-preprocessor';
 import { 
-  Definitions, Constants, ToolFunction, Shadow, PBR, ACESToneMapping
+  Definitions, Constants, ToolFunction, Shadow, PBR
 } from '../../resource/shaderChunk';
 
 export function fragmentShaderFactory(
@@ -80,8 +80,6 @@ ${PBR.Fresnel}
 ${PBR.PBRShading}
 ${PBR.PBREnvShading}
 
-${ACESToneMapping}
-
 
 @fragment
 fn main(
@@ -151,18 +149,16 @@ fn main(
   // );
 
   // PBR shading
-  let directShading = PBRShading(
-    normal, viewDir, lightDir,
-    localMaterial, light.color
-  );
+  // let directShading = PBRShading(
+  //   normal, viewDir, lightDir,
+  //   localMaterial, light.color
+  // );
   let envShading = PBREnvShading(
     normal, viewDir, localMaterial
   );
 
-  var color: vec3<f32> = (0.7 * directShading * visibility + 1.3 * envShading);
-
-  // tone mapping
-  color = ACESToneMapping(color);
+  // var color: vec3<f32> = (0.7 * directShading * visibility + 1.3 * envShading);
+  var color: vec3<f32> = envShading;
 
   return vec4<f32>(color, 1.0);
 

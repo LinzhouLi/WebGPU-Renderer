@@ -262,7 +262,8 @@ class IBL {
       size: [EnvMapResolution, EnvMapResolution, 6],
       dimension: '2d' as GPUTextureDimension,
       mipLevelCount: IBL.EnvMapMipLevelCount,
-      format: 'rgba8unorm' as GPUTextureFormat,
+      format: 'rgba8unorm' as GPUTextureFormat, 
+      viewFormat: 'rgba8unorm-srgb', // with GPU Gamma decoding
       layout: { 
         sampleType: 'float' as GPUTextureSampleType,
         viewDimension: 'cube' as GPUTextureViewDimension
@@ -276,6 +277,7 @@ class IBL {
       size: [IBL.DiffuseEnvMapResulotion, IBL.DiffuseEnvMapResulotion, 6],
       dimension: '2d' as GPUTextureDimension,
       format: 'rgba8unorm' as GPUTextureFormat,
+      viewFormat: 'rgba8unorm-srgb', // with GPU Gamma decoding
       layout: { 
         sampleType: 'float' as GPUTextureSampleType,
         viewDimension: 'cube' as GPUTextureViewDimension

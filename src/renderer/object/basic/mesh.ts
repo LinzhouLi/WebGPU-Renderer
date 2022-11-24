@@ -41,7 +41,7 @@ class Mesh extends RenderableObject {
       visibility: GPUShaderStage.FRAGMENT,
       usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT,
       dimension: '2d' as GPUTextureDimension,
-      format: 'rgba8unorm' as GPUTextureFormat,
+      format: 'rgba8unorm-srgb' as GPUTextureFormat, // with GPU Gamma decoding
       layout: { 
         sampleType: 'float' as GPUTextureSampleType,
         viewDimension: '2d' as GPUTextureViewDimension

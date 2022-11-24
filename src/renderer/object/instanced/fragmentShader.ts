@@ -1,6 +1,6 @@
 import { wgsl } from '../../../3rd-party/wgsl-preprocessor';
 import { 
-  Definitions, Constants, ToolFunction, Shadow, PBR, ACESToneMapping
+  Definitions, Constants, ToolFunction, Shadow, PBR
 } from '../../resource/shaderChunk';
 
 export function fragmentShaderFactory(
@@ -79,8 +79,6 @@ ${PBR.Fresnel}
 ${PBR.PBRShading}
 ${PBR.PBREnvShading}
 
-${ACESToneMapping}
-
 
 @fragment
 fn main(
@@ -146,9 +144,6 @@ fn main(
   );
 
   var color: vec3<f32> = (0.7 * directShading * visibility + 0.3 * envShading);
-
-  // tone mapping
-  color = ACESToneMapping(color);
 
   return vec4<f32>(color, 1.0);
 
