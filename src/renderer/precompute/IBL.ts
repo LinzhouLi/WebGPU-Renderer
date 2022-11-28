@@ -184,8 +184,8 @@ fn main(@builtin(global_invocation_id) global_index : vec3<u32>) {
 }
 `;
 
-const LutShader = /* wgsl */`
-@group(0) @binding(0) var Lut: texture_storage_2d<rg32float, write>;
+const DFGShader = /* wgsl */`
+@group(0) @binding(0) var DFG: texture_storage_2d<rg32float, write>;
 
 ${Constants}
 
@@ -234,14 +234,14 @@ fn integrateBRDF(roughness: f32, NoV: f32) -> vec2<f32> {
 @compute @workgroup_size(16, 16)
 fn main(@builtin(global_invocation_id) global_index : vec3<u32>) {
 
-  let resolution = u32(textureDimensions(Lut).x);
+  let resolution = u32(textureDimensions(DFG).x);
   if(global_index.x >= resolution || global_index.y >= resolution) { return; }
 
   let roughness = (f32(global_index.x) + 0.5) / f32(resolution);  // x: roughness
   let NoV = (f32(global_index.y) + 0.5) / f32(resolution);        // y: cosine
 
   let result = saturate(integrateBRDF(roughness, NoV));
-  textureStore(Lut, vec2<i32>(global_index.xy), vec4<f32>(result, 0.0, 1.0));
+  textureStore(DFG, vec2<i32>(global_index.xy), vec4<f32>(result, 0.0, 1.0));
 
 }
 `;
@@ -249,7 +249,7 @@ fn main(@builtin(global_invocation_id) global_index : vec3<u32>) {
 class IBL {
 
   public static DiffuseEnvMapResulotion = 256;
-  public static LutResulotion = 64;
+  public static DFGResulotion = 64;
   public static EnvMapMipLevelCount = 5;
 
   private static ResourceFormats = {
@@ -283,12 +283,12 @@ class IBL {
         viewDimension: 'cube' as GPUTextureViewDimension
       } as GPUTextureBindingLayout
     },
-    Lut: {
+    DFG: {
       type: 'texture' as ResourceType,
-      labal: 'Lut Texture',
+      labal: 'DFG Texture',
       visibility: GPUShaderStage.FRAGMENT,
       usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.STORAGE_BINDING,
-      size: [IBL.LutResulotion, IBL.LutResulotion],
+      size: [IBL.DFGResulotion, IBL.DFGResulotion],
       dimension: '2d' as GPUTextureDimension,
       format: 'rg32float' as GPUTextureFormat,
       layout: {
@@ -300,11 +300,11 @@ class IBL {
 
   private DiffuseEnvComputePipeline: GPUComputePipeline;
   private SpecularEnvComputePipeline: GPUComputePipeline;
-  private LutComputePipeline: GPUComputePipeline;
+  private DFGComputePipeline: GPUComputePipeline;
 
   private DiffuseEnvBindGroup: { layout: GPUBindGroupLayout, group: GPUBindGroup };
   private SpecularEnvBindGroup: { layout: GPUBindGroupLayout, group: GPUBindGroup };
-  private LutBindGroup: { layout: GPUBindGroupLayout, group: GPUBindGroup };
+  private DFGBindGroup: { layout: GPUBindGroupLayout, group: GPUBindGroup };
 
   private specularTempTexture: GPUTexture;
   private EnvMap: GPUTexture;
@@ -407,33 +407,33 @@ class IBL {
 
   }
 
-  public async initLutComputePipeline(
+  public async initDFGComputePipeline(
     globalResource: { [x: string]: GPUBuffer | GPUTexture | GPUSampler }
   ) { // @ts-ignore
 
-    this.LutBindGroup = { };
-    this.LutBindGroup.layout = device.createBindGroupLayout({
-      label: 'Lut precompute bind group layout',
+    this.DFGBindGroup = { };
+    this.DFGBindGroup.layout = device.createBindGroupLayout({
+      label: 'DFG precompute bind group layout',
       entries: [{
         binding: 0,
         visibility: GPUShaderStage.COMPUTE,
         storageTexture: { access: 'write-only', format: 'rg32float', viewDimension: '2d' }
       }]
     });
-    this.LutBindGroup.group = device.createBindGroup({
-      label: 'Lut precompute bind group',
-      layout: this.LutBindGroup.layout,
+    this.DFGBindGroup.group = device.createBindGroup({
+      label: 'DFG precompute bind group',
+      layout: this.DFGBindGroup.layout,
       entries: [{ 
         binding: 0, 
-        resource: (globalResource.Lut as GPUTexture).createView() 
+        resource: (globalResource.DFG as GPUTexture).createView() 
       }]
     });
 
-    this.LutComputePipeline = await device.createComputePipelineAsync({
-      label: "PreCompute pipeline for IBL (Lut)",
-      layout: device.createPipelineLayout({ bindGroupLayouts: [this.LutBindGroup.layout] }),
+    this.DFGComputePipeline = await device.createComputePipelineAsync({
+      label: "PreCompute pipeline for IBL (DFG)",
+      layout: device.createPipelineLayout({ bindGroupLayouts: [this.DFGBindGroup.layout] }),
       compute: {
-        module: device.createShaderModule({code: LutShader}),
+        module: device.createShaderModule({code: DFGShader}),
         entryPoint: 'main'
       }
     });
@@ -445,7 +445,7 @@ class IBL {
   ) { 
 
     this.EnvMap = globalResource.envMap as GPUTexture;
-    await this.initLutComputePipeline(globalResource);
+    await this.initDFGComputePipeline(globalResource);
     await this.initDiffuseEnvComputePipeline(globalResource);
     await this.initSpecularEnvComputePipeline(globalResource);
 
@@ -457,11 +457,11 @@ class IBL {
     const passEncoder = commandEncoder.beginComputePass();
 
     // LUT
-    passEncoder.setPipeline(this.LutComputePipeline);
-    passEncoder.setBindGroup(0, this.LutBindGroup.group);
+    passEncoder.setPipeline(this.DFGComputePipeline);
+    passEncoder.setBindGroup(0, this.DFGBindGroup.group);
     passEncoder.dispatchWorkgroups(
-      Math.ceil(IBL.LutResulotion / 16), 
-      Math.ceil(IBL.LutResulotion / 16)
+      Math.ceil(IBL.DFGResulotion / 16), 
+      Math.ceil(IBL.DFGResulotion / 16)
     );
 
     // Diffuse Env

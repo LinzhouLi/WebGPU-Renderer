@@ -11,7 +11,8 @@ ${ColorManagement.ACESToneMapping}
 fn main(@location(0) @interpolate(linear, center) gbufferCoord: vec2<f32>) -> @location(0) vec4<f32> {
   let coord = vec2<i32>(gbufferCoord);
   let pixelColor = textureLoad(gbuffer0, coord, 0);
-  var encodedColor = ACESToneMapping(pixelColor.xyz);
+  var encodedColor = pixelColor.xyz * 0.0001; // exposure
+  encodedColor = ACESToneMapping(encodedColor);
   encodedColor = sRGBGammaEncode(encodedColor);
   return vec4<f32>(encodedColor, pixelColor.w);
 }

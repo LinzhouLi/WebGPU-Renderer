@@ -95,6 +95,7 @@ class Main {
     // directional light
     let height = 10, width = 10;
     let directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+    directionalLight.intensity = 50000; // Direct Sun
     directionalLight.shadow.camera = new THREE.OrthographicCamera(width / - 2, width / 2, height / 2, height / - 2, 1, 1000);
     directionalLight.shadow.camera.position.set( -10, 20, -10 );
     directionalLight.shadow.camera.lookAt( 0, 0, 0 );

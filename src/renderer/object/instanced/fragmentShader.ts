@@ -53,7 +53,7 @@ ${bindingIndices['diffuseEnvMap']} var diffuseEnvMap: texture_cube<f32>;
 ${bindingIndices['compareSampler']} var compareSampler: sampler_comparison;
 ${bindingIndices['linearSampler']} var linearSampler: sampler;
 
-${bindingIndices['Lut']} var Lut: texture_2d<f32>;
+${bindingIndices['DFG']} var DFG: texture_2d<f32>;
 
 ${bindingIndices['instancedColor']} var<storage, read> instanceColors: array<vec3<f32>>;
 ${bindingIndices['instancedInfo']} var<storage, read> instanceInfos: array<InstanceInfo>;

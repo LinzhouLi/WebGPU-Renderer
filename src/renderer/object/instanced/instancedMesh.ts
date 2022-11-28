@@ -236,7 +236,7 @@ class InstancedMesh extends RenderableObject {
       'camera', lightType,
       'shadowMap', 'envMap', 'diffuseEnvMap',
       'compareSampler', 'linearSampler',
-      'Lut'
+      'DFG'
     ];
 
     const vertexLayout = vertexBufferFactory.createLayout(this.vertexBufferAttributes);

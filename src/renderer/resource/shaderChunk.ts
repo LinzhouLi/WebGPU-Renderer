@@ -374,7 +374,7 @@ fn PBRShading(
   let G = G2_Smith_approx(alpha, NoL, NoV);
   let D = NDF_GGX(alpha, NoH);
   let F = Fresnel_Schlick(F0, VoH);
-  let dfg = bilinearSampleTexture(Lut, vec2<f32>(material.roughness, NoV)).xy;
+  let dfg = bilinearSampleTexture(DFG, vec2<f32>(material.roughness, NoV)).xy;
   let energyCompensation = 1.0 + F0 * (1 / dfg.y - 1.0);
   let specular = G * D * F * energyCompensation;
   let diffuse = material.albedo * (1.0 - F) * (1.0 - material.metalness) / PI;
@@ -400,7 +400,7 @@ fn PBREnvShading(
   let L = reflect(-V, N);
   let mipCount = f32(textureNumLevels(envMap));
   let prefilterEnv = textureSampleLevel(envMap, linearSampler, L, material.roughness * mipCount).xyz;
-  let dfg = bilinearSampleTexture(Lut, vec2<f32>(material.roughness, NoV)).xy;
+  let dfg = bilinearSampleTexture(DFG, vec2<f32>(material.roughness, NoV)).xy;
   var specular = mix(dfg.xxx, dfg.yyy, F0) * (1.0 + F0 * (1 / dfg.y - 1.0)) * prefilterEnv;
 
   return (diffuse + specular);

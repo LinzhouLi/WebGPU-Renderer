@@ -8,8 +8,7 @@ To do:
 - [x] Blinn-Phong Shading
 - [x] PCF shadow
 - [ ] PCSS shadow
-- [ ] MSAA
-- [ ] Texture compression
+- [ ] TAA
 - [x] Normal Map
 - [x] Skybox
 - [x] Instanced Mesh
@@ -19,7 +18,7 @@ To do:
 - [ ] Cascaded Shadow Map
 - [ ] SubSurface Scattering
 - [ ] GPU LoD
-- [ ] Animation
+- [x] Animation
 - [ ] GPU Driven Rendering
 
 ## Rendering
@@ -44,10 +43,14 @@ kulla-conty precompute:
 
 ![kulla_conty_percompute](img/kulla_conty_percompute.png)
 
-LUT Texture:
+DFG Texture:
 
-![lut](img/lut.png)
+![DFG](img/DFG.png)
 
 Image Based Lighting
 
 ![IBL](img/IBL.png)
+
+Phsically Lighting:
+
+![physicalLight](img/physicalLight.png)

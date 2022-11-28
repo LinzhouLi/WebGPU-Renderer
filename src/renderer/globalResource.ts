@@ -127,14 +127,22 @@ class GlobalResource {
       'camera', this.lightType, 
       'shadowMap', 'envMap', 'diffuseEnvMap',
       'compareSampler', 'linearSampler', 'nonFilterSampler',
-      'Lut',
+      'DFG',
     ];
 
-    const lightPosOrDir = this.lightType === 'pointLight' ?
-      this.light.position : 
-      this.light.position.clone().sub( // normalize(position - target_postion)
-        (this.light as THREE.DirectionalLight).target.position
-      ).normalize();
+    let lightPosOrDir;
+    if (this.lightType === 'pointLight') {
+      this.light.position.setFromMatrixPosition(this.light.matrixWorld);
+      lightPosOrDir = this.light.position;
+    }
+    else if (this.lightType === 'directionalLight') {
+      const light = this.light as THREE.DirectionalLight;
+      light.position.setFromMatrixPosition(light.matrixWorld);
+      light.target.position.setFromMatrixPosition(light.target.matrixWorld);
+      lightPosOrDir = light.position.clone().sub(light.target.position).normalize();
+    }
+
+    let lightColor = new THREE.Vector3(...this.light.color.toArray()).setScalar(this.light.intensity);
 
     const background = this.scene.background as THREE.CubeTexture;
     this.resourceCPUData = {
@@ -142,7 +150,7 @@ class GlobalResource {
       [this.lightType]: { 
         value: new Float32Array([
           ...lightPosOrDir.toArray(), 0,
-          ...this.light.color.toArray(), 0,
+          ...lightColor.toArray(), 0,
           ...this.light.shadow.camera.projectionMatrix.multiply(this.light.shadow.camera.matrixWorldInverse).toArray()
         ])
       },
@@ -159,6 +167,7 @@ class GlobalResource {
   public update() {
 
     // camera (position, view matrix, projection matrix)
+    this.camera.position.setFromMatrixPosition(this.camera.matrixWorld);
     const cameraBufferData = this.resourceCPUData.camera as BufferData;
     cameraBufferData.value.set([
       ...this.camera.position.toArray(), 0,

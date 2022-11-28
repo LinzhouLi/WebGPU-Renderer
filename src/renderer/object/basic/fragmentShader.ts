@@ -49,7 +49,7 @@ ${bindingIndices['diffuseEnvMap']} var diffuseEnvMap: texture_cube<f32>;
 ${bindingIndices['compareSampler']} var compareSampler: sampler_comparison;
 ${bindingIndices['linearSampler']} var linearSampler: sampler;
 
-${bindingIndices['Lut']} var Lut: texture_2d<f32>;
+${bindingIndices['DFG']} var DFG: texture_2d<f32>;
 
 ${bindingIndices['PBRMaterial']} var<uniform> material: PBRMaterial;
 #if ${baseMap}
@@ -149,16 +149,15 @@ fn main(
   // );
 
   // PBR shading
-  // let directShading = PBRShading(
-  //   normal, viewDir, lightDir,
-  //   localMaterial, light.color
-  // );
+  let directShading = PBRShading(
+    normal, viewDir, lightDir,
+    localMaterial, light.color
+  );
   let envShading = PBREnvShading(
     normal, viewDir, localMaterial
   );
 
-  // var color: vec3<f32> = (0.7 * directShading * visibility + 1.3 * envShading);
-  var color: vec3<f32> = envShading;
+  var color: vec3<f32> = (directShading * visibility + 18000.0 * envShading); // Daylight
 
   return vec4<f32>(color, 1.0);
 
