@@ -1,7 +1,7 @@
 import { wgsl } from '../../../3rd-party/wgsl-preprocessor';
 import { VertexShaderParam } from '../vertexShader';
 
-export function VertexShaderInOut(
+function VaryingVS(
   params: VertexShaderParam,
   slotLocations: Record<string, string>
 ) {
@@ -9,7 +9,7 @@ export function VertexShaderInOut(
   return wgsl
 /* wgsl */`
 
-struct VertexInput {
+struct InputVS {
   ${slotLocations['position']} position : vec3<f32>,
   ${slotLocations['normal']} normal : vec3<f32>,
   ${slotLocations['uv']} uv : vec2<f32>,
@@ -22,18 +22,18 @@ struct VertexInput {
 #endif
 };
 
-struct VertexOutput {
+struct OutputVS {
   @builtin(position) position: vec4<f32>,
-  @location(0) @interpolate(perspective, center) vPosition: vec3<f32>,
-  @location(1) @interpolate(perspective, center) vNormal: vec3<f32>,
-  @location(2) @interpolate(perspective, center) uv: vec2<f32>,
-  @location(3) @interpolate(perspective, center) vShadowPos: vec4<f32>,
+  @location(0) @interpolate(perspective, center) vNormal: vec3<f32>,
+  @location(1) @interpolate(perspective, center) vUv: vec2<f32>,
 #if ${params.tangent}
-  @location(4) @interpolate(perspective, center) vTangent: vec3<f32>,
-  @location(5) @interpolate(perspective, center) vBiTangent: vec3<f32>
+  @location(2) @interpolate(perspective, center) vTangent: vec3<f32>,
+  @location(3) @interpolate(perspective, center) vBiTangent: vec3<f32>
 #endif
 };
 
 `;
 
 }
+
+export { VaryingVS };

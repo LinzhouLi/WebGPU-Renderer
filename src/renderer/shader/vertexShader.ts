@@ -1,4 +1,5 @@
 import { wgsl } from '../../3rd-party/wgsl-preprocessor';
+import { DataStructure, VaryingVS } from './shaderChunk';
 
 interface VertexShaderParam {
   tangent: boolean;
@@ -32,8 +33,42 @@ function vertexShaderFactory(
     code = wgsl
 /* wgsl */`
 
+${DataStructure.Camera}
+${DataStructure.Transform}
+${VaryingVS}
+
+${bindingIndices['camera']} var<uniform> camera: Camera;
+${bindingIndices['transform']} var<uniform> transform : Transform;
+
 @vertex
-fn main(input: VertexInput) -> VertexOutput {
+fn main(input: VSInput) -> VSOutput {
+
+  // object space
+  let positionObject = vec4<f32>(input.position, 1.0);
+  let normalObject = input.normal;
+#if ${params.tangent}
+  let tangentObject = input.tangent.xyz;
+#endif
+
+  // world space
+  let normalWorld = transform.normalMat * normalObject;
+#if ${params.tangent}
+  let tangentWorld = transform.normalMat * tangentObject;
+  let biTangentWorld = cross(normalWorld, tangentWorld) * tangent.w;
+#endif
+
+  // camera space
+
+  // screen space
+  let positionScreen = camera.projectionMat * transform.modelViewMat * positionObject;
+
+  // output
+  return OutputVS(
+    positionScreen, normalWorld, input.uv,
+#if ${params.tangent}
+    tangentWorld, biTangentWorld
+#endif
+  );
 
 }
 
@@ -42,6 +77,9 @@ fn main(input: VertexInput) -> VertexOutput {
   else if (pass === 'shadow') { // shadow pass
     code = wgsl
 /* wgsl */`
+
+${bindingIndices['shadowMat']} var<uniform> shadowMat: mat4x4<f32>;
+${bindingIndices['transform']} var<uniform> transform: Transform;
 
 @vertex
 fn main( 
@@ -52,7 +90,8 @@ fn main(
 #endif
 ) -> @builtin(position) vec4<f32> {
 
-
+  let positionObject = vec4<f32>(input.position, 1.0);
+  return shadowMat * transform.modelMat * positionObject;
 
 }
 
