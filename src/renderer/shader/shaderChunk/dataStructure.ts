@@ -9,7 +9,6 @@ struct Camera {
 const Transform = `
 struct Transform {
   modelMat: mat4x4<f32>,
-  modelViewMat: mat4x4<f32>,
   normalMat : mat3x3<f32>
 }
 `;

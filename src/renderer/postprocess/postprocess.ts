@@ -8,7 +8,8 @@ override screenHeight: f32;
 
 struct VertexOutput {
   @builtin(position) position: vec4<f32>,
-  @location(0) @interpolate(linear, center) gbufferCoord: vec2<f32>
+  @location(0) @interpolate(linear, center) screenCoord: vec2<f32>,
+  @location(1) @interpolate(linear, center) gbufferCoord: vec2<f32>
 };
 
 const coords = array<vec2<f32>, 4>(
@@ -19,10 +20,12 @@ const coords = array<vec2<f32>, 4>(
 @vertex
 fn main(@builtin(vertex_index) index: u32) -> VertexOutput {
   let coord = coords[index];
-  var output: VertexOutput;
-  output.position = vec4<f32>(coord, 0.0, 1.0);
-  output.gbufferCoord = (coord * vec2<f32>(0.5, -0.5) + 0.5) * vec2<f32>(screenWidth, screenHeight);
-  return output;
+  let position = vec4<f32>(coord, 0.0, 1.0);
+  let screenCoord = coord * vec2<f32>(0.5, -0.5) + 0.5;
+  let gbufferCoord = screenCoord * vec2<f32>(screenWidth, screenHeight);
+  return VertexOutput(
+    position, screenCoord, gbufferCoord
+  );
 }
 `;
 

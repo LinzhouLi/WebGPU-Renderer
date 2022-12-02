@@ -37,25 +37,20 @@ fn ACESToneMapping(vec3<f32> color) -> vec3<f32> {
 
 const sRGB_OETF = /* wgsl */` // encoding
 fn sRGBGammaEncode(color: vec3<f32>) -> vec3<f32> {
-  return vec4<f32>(
-    mix(
-      color.rgb * 0.0773993808,                                       // y <= 0.04045
-      pow(color.rgb * 0.9478672986 + 0.0521327014, vec3<f32>(2.4)),   // y >  0.04045
-      saturate(sign(color.rgb - 0.04045))
-    , gl_FragColor.w
+  return mix(
+    color.rgb * 12.92,                                    // x <= 0.0031308
+    pow(color.rgb, vec3<f32>(0.41666)) * 1.055 - 0.055,   // x >  0.0031308
+    saturate(sign(color.rgb - 0.0031308))
   );
 }
 `;
 
 const sRGB_EOTF = /* wgsl */` // decoding
-fn sRGBGammaDecode(color: vec4<f32>) -> vec4<f32> {
-  return vec4<f32>( 
-    mix(
-      color.rgb * 12.92,                                    // x <= 0.0031308
-      pow(color.rgb, vec3<f32>(0.41666)) * 1.055 - 0.055,   // x >  0.0031308
-      saturate(sign(color.rgb - 0.0031308))
-    ),
-    color.a 
+fn sRGBGammaDecode(color: vec3<f32>) -> vec3<f32> {
+  return mix(
+    color.rgb * 0.0773993808,                                       // y <= 0.04045
+    pow(color.rgb * 0.9478672986 + 0.0521327014, vec3<f32>(2.4)),   // y >  0.04045
+    saturate(sign(color.rgb - 0.04045))
   );
 }
 `;

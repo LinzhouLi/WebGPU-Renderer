@@ -3,8 +3,10 @@ import { device } from '../../renderer';
 import type { TypedArray } from '../../base';
 import { vertexBufferFactory, resourceFactory, bindGroupFactory } from '../../base';
 import { RenderableObject } from '../renderableObject';
-import { vertexShaderFactory } from './vertexShader';
-import { fragmentShaderFactory } from './fragmentShader';
+// import { vertexShaderFactory } from './vertexShader';
+// import { fragmentShaderFactory } from './fragmentShader';
+import { vertexShaderFactory } from '../../shader/vertexShader';
+import { fragmentShaderFactory } from '../../shader/fragmentShader';
 import type { ResourceType, BufferData, TextureData, TextureArrayData } from '../../resource/resuorce';
 import { ResourceFactory } from '../../resource/resuorce';
 
@@ -26,9 +28,9 @@ class Mesh extends RenderableObject {
     },
 
     // material
-    PBRMaterial: {
+    material: {
       type: 'buffer' as ResourceType,
-      label: 'PBR Material Structure', // roughness(f32), metalness(f32), albedo(vec3<f32>), specular(vec3<f32>)
+      label: 'PBR Material Structure', 
       visibility: GPUShaderStage.FRAGMENT,
       usage:  GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
       layout: { 
@@ -74,6 +76,18 @@ class Mesh extends RenderableObject {
     roughnessMap: { // roughness map
       type: 'texture' as ResourceType,
       label: 'RoughnessMap',
+      visibility: GPUShaderStage.FRAGMENT,
+      usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT,
+      dimension: '2d' as GPUTextureDimension,
+      format: 'rgba8unorm' as GPUTextureFormat,
+      layout: { 
+        sampleType: 'float' as GPUTextureSampleType,
+        viewDimension: '2d' as GPUTextureViewDimension
+      } as GPUTextureBindingLayout
+    },
+    specularMap: { // specular map
+      type: 'texture' as ResourceType,
+      label: 'SpecularMap',
       visibility: GPUShaderStage.FRAGMENT,
       usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT,
       dimension: '2d' as GPUTextureDimension,
@@ -145,18 +159,18 @@ class Mesh extends RenderableObject {
 
   public async initGroupResource() {
 
-    const material = this.mesh.material as THREE.MeshStandardMaterial;
+    const material = this.mesh.material as THREE.MeshPhysicalMaterial;
 
-    this.resourceAttributes = ['transform', 'PBRMaterial'];
+    this.resourceAttributes = ['transform', 'material'];
     this.resourceCPUData = {
-      transform: { value: new Float32Array(16 + 12) }, // update per frame
-      PBRMaterial: { 
+      transform: { value: new Float32Array(16 + 16 + 12) }, // update per frame
+      material: { 
         value: new Float32Array([
-          material.roughness,
           material.metalness, 
-          0, 0, // for alignment
-          ...material.color.toArray(), 0, // @ts-ignore
-          ...(material.specular || defaultSpecular).toArray(), 0
+          material.specularIntensity, 
+          material.roughness,
+          0, // for alignment
+          ...material.color.toArray(),
         ])
       }
     };
@@ -192,6 +206,14 @@ class Mesh extends RenderableObject {
         flipY: material.map.flipY
       };
     }
+
+    if (!!material.specularIntensityMap) {
+      this.resourceAttributes.push('specularMap');
+      this.resourceCPUData.specularMap = { 
+        value: await resourceFactory.toBitmap(material.specularIntensityMap.image), 
+        flipY: material.map.flipY
+      };
+    }
     
     this.resource = await resourceFactory.createResource(this.resourceAttributes, this.resourceCPUData);
     
@@ -204,11 +226,14 @@ class Mesh extends RenderableObject {
   ) {
 
     const lightType = globalResource.pointLight ? 'pointLight' : 'directionalLight';
+    // const globalResourceAttributes = [ 
+    //   'camera', lightType,
+    //   'shadowMap', 'envMap', 'diffuseEnvMap',
+    //   'compareSampler', 'linearSampler',
+    //   'DFG'
+    // ];
     const globalResourceAttributes = [ 
-      'camera', lightType,
-      'shadowMap', 'envMap', 'diffuseEnvMap',
-      'compareSampler', 'linearSampler',
-      'DFG'
+      'camera', 'linearSampler'
     ];
     
     const vertexLayout = vertexBufferFactory.createLayout(this.vertexBufferAttributes);
@@ -279,8 +304,7 @@ class Mesh extends RenderableObject {
     let vertexBufferAttributs = ['position'];
     if (this.vertexBufferAttributes.includes('index')) vertexBufferAttributs.push('index');
 
-    const lightType = globalResource.pointLight ? 'pointLight' : 'directionalLight';
-    const resourceAttributes = [lightType, 'transform'];
+    const resourceAttributes = ['shadowMat', 'transform'];
 
     const vertexLayout = vertexBufferFactory.createLayout(vertexBufferAttributs);
     const bind = bindGroupFactory.create( resourceAttributes, {...globalResource, ...this.resource} );

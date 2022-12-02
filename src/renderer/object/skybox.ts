@@ -4,6 +4,7 @@ import {
   bindGroupFactory
 } from '../base';
 import { RenderableObject } from './renderableObject';
+import { ColorManagement } from '../shader/shaderChunk';
 
 // skybox shader code
 const skyboxVertexShader = /* wgsl */`
@@ -26,7 +27,7 @@ fn main( @location(0) position : vec3<f32>, ) -> VertexOutput {
   let posProj = camera.projectionMat * vec4<f32>(posView.xyz, 1.0);
   var output: VertexOutput;
   output.fragPosition = position;
-  output.position = vec4<f32>(posProj.xy, posProj.w - 1e-6, posProj.w); // 深度添加bias, 否则显示不出来
+  output.position = posProj.xyww;
   return output;
 }
 `;
@@ -42,6 +43,29 @@ fn main(
   @location(0) fragPosition : vec3<f32>,
 ) -> @location(0) vec4<f32> {
   return 18000.0 * textureSampleLevel(envMap, linearSampler, fragPosition, 0);
+}
+`;
+
+const skyboxFragmentShaderDeferred = /* wgsl */`
+@group(0) @binding(1) var linearSampler: sampler;
+@group(0) @binding(2) var envMap: texture_cube<f32>;
+
+${ColorManagement.sRGB_OETF}
+
+struct OutputFS {
+  @location(0) GBufferA: vec4<f32>, // normal
+  @location(1) GBufferB: vec4<f32>, // material
+  @location(2) GBufferC: vec4<f32>  // base color
+}
+
+@fragment
+fn main(
+  @builtin(position) position : vec4<f32>,
+  @location(0) fragPosition : vec3<f32>,
+) -> OutputFS {
+  let color = textureSampleLevel(envMap, linearSampler, fragPosition, 0).xyz;
+  let r = vec4<f32>(sRGBGammaEncode(color), 1.0);
+  return OutputFS(vec4<f32>(0.0), vec4<f32>(0.0), r);
 }
 `;
 
@@ -98,7 +122,7 @@ class Skybox extends RenderableObject {
       ['camera', 'linearSampler', 'envMap'],
       globalResource
     );
-
+    console.log(targetStates)
     this.renderPipeline = await device.createRenderPipelineAsync({
       label: 'Skybox Render Pipeline',
       layout: device.createPipelineLayout({ bindGroupLayouts: [layout] }),
@@ -108,7 +132,7 @@ class Skybox extends RenderableObject {
         buffers: vertexBufferLayout
       },
       fragment: {
-        module: device.createShaderModule({ code: skyboxFragmentShader }),
+        module: device.createShaderModule({ code: skyboxFragmentShaderDeferred }),
         entryPoint: 'main',
         targets: targetStates
       },
@@ -118,7 +142,7 @@ class Skybox extends RenderableObject {
       }, 
       depthStencil: {
         depthWriteEnabled: true,
-        depthCompare: 'less',
+        depthCompare: 'less-equal', // 深度比较改为 less-equal
         format: 'depth32float'
       }
     });

@@ -35,13 +35,13 @@ function vertexShaderFactory(
 
 ${DataStructure.Camera}
 ${DataStructure.Transform}
-${VaryingVS}
+${VaryingVS(params, slotLocations)}
 
 ${bindingIndices['camera']} var<uniform> camera: Camera;
 ${bindingIndices['transform']} var<uniform> transform : Transform;
 
 @vertex
-fn main(input: VSInput) -> VSOutput {
+fn main(input: InputVS) -> OutputVS {
 
   // object space
   let positionObject = vec4<f32>(input.position, 1.0);
@@ -54,13 +54,13 @@ fn main(input: VSInput) -> VSOutput {
   let normalWorld = transform.normalMat * normalObject;
 #if ${params.tangent}
   let tangentWorld = transform.normalMat * tangentObject;
-  let biTangentWorld = cross(normalWorld, tangentWorld) * tangent.w;
+  let biTangentWorld = cross(normalWorld, tangentWorld) * input.tangent.w;
 #endif
 
   // camera space
 
   // screen space
-  let positionScreen = camera.projectionMat * transform.modelViewMat * positionObject;
+  let positionScreen = camera.projectionMat * camera.viewMat * transform.modelMat * positionObject;
 
   // output
   return OutputVS(
@@ -79,6 +79,8 @@ fn main(input: VSInput) -> VSOutput {
 /* wgsl */`
 
 ${bindingIndices['shadowMat']} var<uniform> shadowMat: mat4x4<f32>;
+
+${DataStructure.Transform}
 ${bindingIndices['transform']} var<uniform> transform: Transform;
 
 @vertex
@@ -90,14 +92,14 @@ fn main(
 #endif
 ) -> @builtin(position) vec4<f32> {
 
-  let positionObject = vec4<f32>(input.position, 1.0);
+  let positionObject = vec4<f32>(position, 1.0);
   return shadowMat * transform.modelMat * positionObject;
 
 }
 
 `;
   }
-
+  
   return code;
 
 }

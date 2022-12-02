@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { device } from './renderer';
+import { device, canvasSize } from './renderer';
 import { RenderableObject } from './object/renderableObject';
 import { GlobalResource } from './globalResource';
 import { Mesh } from './object/basic/mesh';
@@ -9,8 +9,9 @@ import { InstancedSkinnedMesh } from './object/instanced/InstancedSkinnedMesh';
 import { Skybox } from './object/skybox';
 import { IBL } from './precompute/IBL';
 import { GBUfferResource } from './gbufferResource';
-import { ToneMapping } from './postprocess/toneMapping';
 import { PostProcess } from './postprocess/postprocess';
+import { DeferredShading } from './postprocess/deferredShading';
+import { ToneMapping } from './postprocess/toneMapping';
 
 // console.info( 'THREE.WebGPURenderer: Modified Matrix4.makePerspective() and Matrix4.makeOrtographic() to work with WebGPU, see https://github.com/mrdoob/three.js/issues/20276.' );
 // @ts-ignore
@@ -91,6 +92,7 @@ class RenderController {
   
   public iBL: IBL;
 
+  private outputGBuffers: string[];
   public postprocesses: PostProcess[];
 
   public shadowBundle: GPURenderBundle;
@@ -99,6 +101,7 @@ class RenderController {
   constructor() {
 
     this.objectList = [];
+    this.outputGBuffers = ['GBufferA', 'GBufferB', 'GBufferC'];
 
   }
 
@@ -156,7 +159,7 @@ class RenderController {
 
     // post process
     this.postprocesses = [
-      new ToneMapping()
+      new DeferredShading()
     ];
 
   }
@@ -201,7 +204,7 @@ class RenderController {
 
   public async initRenderPass() {
 
-    const targetFormats = this.postprocesses[0].inputGBuffers.map(
+    const targetFormats = this.outputGBuffers.map(
       attribute => GBUfferResource.Formats[attribute] as GPUTextureFormat
     );
     const targetStates = targetFormats.map(targetFormat => {
@@ -272,10 +275,10 @@ class RenderController {
     shadowPassEncoder.end();
 
     // render pass
-    const targetAttachments = this.postprocesses[0].inputGBuffers.map(attribute => {
+    const targetAttachments = this.outputGBuffers.map(attribute => {
       return {
         view: this.gbufferResource.views[attribute],
-        clearValue: { r: 0, g: 0, b: 0, a: 1.0 },
+        clearValue: { r: 0, g: 0, b: 0, a: 0.0 },
         loadOp: 'clear',
         storeOp: 'store'
       } as GPURenderPassColorAttachment
@@ -292,6 +295,17 @@ class RenderController {
     });
     renderPassEncoder.executeBundles([this.renderBundle]);
     renderPassEncoder.end();
+
+    // copy depth buffer
+    commandEncoder.copyTextureToTexture({
+        texture: this.globalResource.resource.renderDepthMap as GPUTexture,
+        origin: [0, 0]
+      }, {
+        texture: this.gbufferResource.resource.GBufferDepth as GPUTexture,
+        origin: [0, 0]
+      },
+      [canvasSize.width, canvasSize.height]
+    );
 
     // post process
     this.postprocesses.forEach(postprocess => {

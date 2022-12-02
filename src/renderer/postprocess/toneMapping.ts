@@ -8,7 +8,10 @@ ${ColorManagement.sRGBGammaEncode}
 ${ColorManagement.ACESToneMapping}
 
 @fragment
-fn main(@location(0) @interpolate(linear, center) gbufferCoord: vec2<f32>) -> @location(0) vec4<f32> {
+fn main(
+  @location(0) @interpolate(linear, center) screenCoord: vec2<f32>,
+  @location(1) @interpolate(linear, center) gbufferCoord: vec2<f32>
+) -> @location(0) vec4<f32> {
   let coord = vec2<i32>(gbufferCoord);
   let pixelColor = textureLoad(gbuffer0, coord, 0);
   var encodedColor = pixelColor.xyz * 0.0001; // exposure

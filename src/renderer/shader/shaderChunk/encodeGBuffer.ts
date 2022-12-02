@@ -13,7 +13,7 @@ fn EncodeGBufferB(metalness: f32, specular: f32, roughness: f32) -> vec4<f32> {
 
 const C = /* wgsl */`
 fn EncodeGBufferC(baseColor: vec3<f32>) -> vec4<f32> {
-  return vec4<f32>(baseColor, 0.0);
+  return vec4<f32>(sRGBGammaEncode(baseColor), 0.0);
 }
 `;
 

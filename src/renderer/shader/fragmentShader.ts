@@ -1,5 +1,5 @@
 import { wgsl } from '../../3rd-party/wgsl-preprocessor';
-import { DataStructure, VaryingFS, EncodeGBuffer } from './shaderChunk';
+import { DataStructure, VaryingFS, EncodeGBuffer, ColorManagement } from './shaderChunk';
 
 interface FragmentShaderParam {
   baseMap: boolean;
@@ -9,7 +9,7 @@ interface FragmentShaderParam {
   roughnessMap: boolean;
 }
 
-export function fragmentShaderFactory(
+function fragmentShaderFactory(
   slotAttributes: string[],
   bindingAttributes: string[][], 
   type: ('phong' | 'PBR') = 'PBR'
@@ -37,8 +37,7 @@ export function fragmentShaderFactory(
 
 ${VaryingFS(params)}
 
-${DataStructure.Material}
-
+${ColorManagement.sRGB_OETF}
 ${EncodeGBuffer.A}
 ${EncodeGBuffer.B}
 ${EncodeGBuffer.C}
@@ -59,23 +58,27 @@ ${bindingIndices['specularMap']} var specularMap: texture_2d<f32>;
 ${bindingIndices['roughnessMap']} var roughnessMap: texture_2d<f32>;
 #endif
 
+${DataStructure.Material}
+${bindingIndices['material']} var<uniform> material: Material;
+${bindingIndices['linearSampler']} var linearSampler: sampler;
+
 @fragment
 fn main(input: InputFS) -> OutputFS {
 
   // normal
 #if ${params.normalMap}
-  let TBN = mat3x3<f32>(normalize(vTangent), normalize(vBiTangent), normalize(vNormal));
+  let TBN = mat3x3<f32>(normalize(input.vTangent), normalize(input.vBiTangent), normalize(input.vNormal));
   let mapNormal = 2.0 * textureSample(normalMap, linearSampler, input.vUv).xyz - 1.0;
   let normal = TBN * mapNormal;
 #else
-  let normal = normalize(vNormal);
+  let normal = normalize(input.vNormal);
 #endif
 
   // base color
 #if ${params.baseMap}
   let baseColor = textureSample(baseMap, linearSampler, input.vUv).xyz;
 #else
-  let baseColor = material.color;
+  let baseColor = material.baseColor;
 #endif
 
   // metalness
@@ -83,6 +86,13 @@ fn main(input: InputFS) -> OutputFS {
   let metalness = textureSample(metalnessMap, linearSampler, input.vUv).x;
 #else
   let metalness = material.metalness;
+#endif
+
+  // specular
+#if ${params.specularMap}
+  let specular = textureSample(specularMap, linearSampler, input.vUv).x;
+#else
+  let specular = material.specular;
 #endif
 
   // roughness
@@ -102,6 +112,9 @@ fn main(input: InputFS) -> OutputFS {
 
 `;
 
+  return code;
+
 }
 
-export type { FragmentShaderParam }
+export type { FragmentShaderParam };
+export { fragmentShaderFactory };

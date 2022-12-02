@@ -34,7 +34,7 @@ class GlobalResource {
       renderDepthMap: {
         type: 'texture' as ResourceType,
         label: 'Render Depth Map',
-        usage: GPUTextureUsage.RENDER_ATTACHMENT,
+        usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC,
         size: [canvasSize.width, canvasSize.height],
         dimension: '2d' as GPUTextureDimension,
         format: 'depth32float' as GPUTextureFormat,
@@ -83,6 +83,15 @@ class GlobalResource {
           viewDimension: '2d' as GPUTextureViewDimension
         } as GPUTextureBindingLayout
       },
+      shadowMat: {
+        type: 'buffer' as ResourceType,
+        label: 'ViewProjection Matrix for shadow',
+        visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+        usage:  GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+        layout: { 
+          type: 'uniform' as GPUBufferBindingType
+        } as GPUBufferBindingLayout
+      },
   
       // sampler
       compareSampler: {
@@ -124,7 +133,7 @@ class GlobalResource {
 
     this.resourceAttributes = [
       'renderDepthMap',
-      'camera', this.lightType, 
+      'camera', this.lightType, 'shadowMat',
       'shadowMap', 'envMap', 'diffuseEnvMap',
       'compareSampler', 'linearSampler', 'nonFilterSampler',
       'DFG',
@@ -143,15 +152,17 @@ class GlobalResource {
     }
 
     let lightColor = new THREE.Vector3(...this.light.color.toArray()).setScalar(this.light.intensity);
+    let shadowMat = this.light.shadow.camera.projectionMatrix.multiply(this.light.shadow.camera.matrixWorldInverse);
 
     const background = this.scene.background as THREE.CubeTexture;
     this.resourceCPUData = {
       camera: { value: new Float32Array(4 + 16 + 16) }, // update per frame
+      shadowMat: { value: new Float32Array(shadowMat.toArray()) },
       [this.lightType]: { 
         value: new Float32Array([
           ...lightPosOrDir.toArray(), 0,
           ...lightColor.toArray(), 0,
-          ...this.light.shadow.camera.projectionMatrix.multiply(this.light.shadow.camera.matrixWorldInverse).toArray()
+          ...shadowMat.toArray()
         ])
       },
       envMap: { 

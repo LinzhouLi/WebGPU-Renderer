@@ -183,7 +183,7 @@ class Main {
     {
       const geometry = new THREE.PlaneGeometry( 3, 3 );
       const material = new THREE.MeshStandardMaterial();
-      material.color = new THREE.Color(0.972, 0.960, 0.915);
+      material.color = new THREE.Color(1, 1, 1);
       material.roughness = 0.1;
       material.metalness = 0.0;
       const mesh = new THREE.Mesh( geometry, material );
