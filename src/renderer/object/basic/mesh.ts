@@ -3,14 +3,10 @@ import { device } from '../../renderer';
 import type { TypedArray } from '../../base';
 import { vertexBufferFactory, resourceFactory, bindGroupFactory } from '../../base';
 import { RenderableObject } from '../renderableObject';
-// import { vertexShaderFactory } from './vertexShader';
-// import { fragmentShaderFactory } from './fragmentShader';
-import { vertexShaderFactory } from '../../shader/vertexShader';
-import { fragmentShaderFactory } from '../../shader/fragmentShader';
+import { GeometryPassShader } from '../../shader/shaderLib/geometryPass';
+import { ShadowPassShader } from '../../shader/shaderLib/shadowPass';
 import type { ResourceType, BufferData, TextureData, TextureArrayData } from '../../resource/resuorce';
 import { ResourceFactory } from '../../resource/resuorce';
-
-const defaultSpecular = new THREE.Vector3(0.5, 0.5, 0.5);
 
 class Mesh extends RenderableObject {
 
@@ -30,7 +26,7 @@ class Mesh extends RenderableObject {
     // material
     material: {
       type: 'buffer' as ResourceType,
-      label: 'PBR Material Structure', 
+      label: 'Material Structure', 
       visibility: GPUShaderStage.FRAGMENT,
       usage:  GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
       layout: { 
@@ -114,15 +110,18 @@ class Mesh extends RenderableObject {
   protected resourceCPUData: Record<string, BufferData | TextureData | TextureArrayData>; // resource in CPU
   protected resource: Record<string, GPUBuffer | GPUTexture | GPUSampler>; // resource in GPU
 
-  protected createVertexShader: (slotAttributes: string[], attributes: string[][], pass: ('render' | 'shadow')) => string;
-  protected createFragmentShader: (slotAttributes: string[], attributes: string[][], type: ('phong' | 'PBR')) => string;
+  protected geometryPassShader: {
+    Vertex: (slotAttributes: string[], bindingAttributes: string[][]) => string,
+    Fragment: (slotAttributes: string[], bindingAttributes: string[][]) => string
+  }
+  protected shadowPassShader: (slotAttributes: string[], bindingAttributes: string[][]) => string
 
   constructor(mesh: THREE.Mesh) {
 
     super();
     this.mesh = mesh;
-    this.createVertexShader = vertexShaderFactory;
-    this.createFragmentShader = fragmentShaderFactory;
+    this.geometryPassShader = GeometryPassShader;
+    this.shadowPassShader = ShadowPassShader;
     
   }
 
@@ -247,14 +246,14 @@ class Mesh extends RenderableObject {
       }),
       vertex: {
         module: device.createShaderModule({ code: 
-          this.createVertexShader(this.vertexBufferAttributes, [globalResourceAttributes, this.resourceAttributes], 'render')
+          this.geometryPassShader.Vertex(this.vertexBufferAttributes, [globalResourceAttributes, this.resourceAttributes])
         }),
         entryPoint: 'main',
         buffers: vertexLayout
       },
       fragment: {
         module: device.createShaderModule({ code: 
-          this.createFragmentShader(this.vertexBufferAttributes, [globalResourceAttributes, this.resourceAttributes], 'PBR')
+          this.geometryPassShader.Fragment(this.vertexBufferAttributes, [globalResourceAttributes, this.resourceAttributes])
         }),
         entryPoint: 'main',
         targets: targetStates,
@@ -316,7 +315,7 @@ class Mesh extends RenderableObject {
       }),
       vertex: {
         module: device.createShaderModule({ code: 
-          this.createVertexShader(vertexBufferAttributs, [resourceAttributes], 'shadow')
+          this.shadowPassShader(vertexBufferAttributs, [resourceAttributes])
         }),
         entryPoint: 'main',
         buffers: vertexLayout
