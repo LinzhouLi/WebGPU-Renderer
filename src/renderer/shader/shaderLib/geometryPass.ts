@@ -94,7 +94,7 @@ function Fragment(
   /* wgsl */`
 
 ${GeometryPassIO.FragInput(params)}
-${GeometryPassIO.FragOutput(params)}
+${GeometryPassIO.FragOutput}
 
 ${ColorManagement.sRGB_OETF}
 ${EncodeGBuffer.A}

@@ -4,33 +4,7 @@ import {
   bindGroupFactory
 } from '../base';
 import { RenderableObject } from './renderableObject';
-import { ColorManagement } from '../shader/shaderChunk';
-
-// skybox shader code
-const skyboxVertexShader = /* wgsl */`
-struct Camera {
-  position: vec3<f32>,
-  viewMat: mat4x4<f32>,
-  projectionMat: mat4x4<f32>
-};
-
-@group(0) @binding(0) var<uniform> camera: Camera;
-
-struct VertexOutput {
-  @builtin(position) position : vec4<f32>,
-  @location(0) fragPosition : vec3<f32>,
-};
-
-@vertex
-fn main( @location(0) position : vec3<f32>, ) -> VertexOutput {
-  let posView = camera.viewMat * vec4<f32>(position, 0.0);
-  let posProj = camera.projectionMat * vec4<f32>(posView.xyz, 1.0);
-  var output: VertexOutput;
-  output.fragPosition = position;
-  output.position = posProj.xyww;
-  return output;
-}
-`;
+import { SkyboxShader } from '../shader/shaderLib/skybox';
 
 
 const skyboxFragmentShader = /* wgsl */`
@@ -43,29 +17,6 @@ fn main(
   @location(0) fragPosition : vec3<f32>,
 ) -> @location(0) vec4<f32> {
   return 18000.0 * textureSampleLevel(envMap, linearSampler, fragPosition, 0);
-}
-`;
-
-const skyboxFragmentShaderDeferred = /* wgsl */`
-@group(0) @binding(1) var linearSampler: sampler;
-@group(0) @binding(2) var envMap: texture_cube<f32>;
-
-${ColorManagement.sRGB_OETF}
-
-struct OutputFS {
-  @location(0) GBufferA: vec4<f32>, // normal
-  @location(1) GBufferB: vec4<f32>, // material
-  @location(2) GBufferC: vec4<f32>  // base color
-}
-
-@fragment
-fn main(
-  @builtin(position) position : vec4<f32>,
-  @location(0) fragPosition : vec3<f32>,
-) -> OutputFS {
-  let color = textureSampleLevel(envMap, linearSampler, fragPosition, 0).xyz;
-  let r = vec4<f32>(sRGBGammaEncode(color), 1.0);
-  return OutputFS(vec4<f32>(0.0), vec4<f32>(0.0), r);
 }
 `;
 
@@ -127,12 +78,12 @@ class Skybox extends RenderableObject {
       label: 'Skybox Render Pipeline',
       layout: device.createPipelineLayout({ bindGroupLayouts: [layout] }),
       vertex: {
-        module: device.createShaderModule({ code: skyboxVertexShader }),
+        module: device.createShaderModule({ code: SkyboxShader.Vertex }),
         entryPoint: 'main',
         buffers: vertexBufferLayout
       },
       fragment: {
-        module: device.createShaderModule({ code: skyboxFragmentShaderDeferred }),
+        module: device.createShaderModule({ code: SkyboxShader.Fragment }),
         entryPoint: 'main',
         targets: targetStates
       },

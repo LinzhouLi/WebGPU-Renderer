@@ -60,7 +60,7 @@ struct VertInput {
   `;
 }
 
-function VertOutput(params: VertexShaderParam) {
+function VertOutput(params: ShaderParam) {
   let varings = getVaringValues(params);
   return wgsl
   /* wgsl */`
@@ -74,7 +74,7 @@ struct VertOutput {
 }
 
 
-function FragInput (params: FragmentShaderParam) {
+function FragInput (params: ShaderParam) {
   let varings = getVaringValues(params);
   return wgsl
   /* wgsl */`
@@ -86,9 +86,7 @@ struct FragInput {
 `;
 }
 
-function FragOutput (params: FragmentShaderParam) {
-  return wgsl
-  /* wgsl */`
+const FragOutput = /* wgsl */`
 
 struct FragOutput {
   @location(0) GBufferA: vec4<f32>, // normal
@@ -97,7 +95,6 @@ struct FragOutput {
 }
   
 `;
-}
 
 const GeometryPassIO = { VertInput, VertOutput, FragInput, FragOutput };
 
