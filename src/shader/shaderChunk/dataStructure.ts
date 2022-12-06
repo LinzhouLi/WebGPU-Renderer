@@ -2,7 +2,9 @@ const Camera = `
 struct Camera {
   position: vec3<f32>,
   viewMat: mat4x4<f32>,
-  projectionMat: mat4x4<f32>
+  projectionMat: mat4x4<f32>,
+  frustumCorners: array<vec3<f32>, 4>,
+  params: vec4<f32>
 }
 `;
 

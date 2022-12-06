@@ -15,6 +15,7 @@ To do:
 - [x] Physically Based Shading
 - [x] ACES Tone Mapping
 - [x] Image Based Lighting
+- [ ] Deferred Shading Pipleline
 - [ ] Cascaded Shadow Map
 - [ ] SubSurface Scattering
 - [ ] GPU LoD
@@ -54,3 +55,11 @@ Image Based Lighting
 Phsically Lighting:
 
 ![physicalLight](img/physicalLight.png)
+
+Linear Depth (compute from Reverse Depth Buffer)
+
+![linearDepth](img/linearDepth.png)
+
+World Position (compute from Reverse Depth Buffer)
+
+![worldPos](img/worldPos.png)

@@ -264,7 +264,7 @@ class Mesh extends RenderableObject {
       }, 
       depthStencil: {
         depthWriteEnabled: true,
-        depthCompare: 'less',
+        depthCompare: 'greater',
         format: 'depth32float'
       }
     });

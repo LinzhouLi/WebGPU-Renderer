@@ -9,6 +9,7 @@ import { EncodeGBuffer } from './shaderChunk/encodeGBuffer';
 import { DecodeGBuffer } from './shaderChunk/decodeGBuffer';
 
 import { ColorManagement } from "./shaderChunk/colorManagement";
+import { CameraTransform } from './shaderChunk/cameraTransform';
 
 
 export { 
@@ -17,5 +18,5 @@ export {
   NormalMapPars, NormalMap,
   MaterialPars, MaterialMap,
   EncodeGBuffer, DecodeGBuffer,
-  ColorManagement 
+  ColorManagement, CameraTransform
 };

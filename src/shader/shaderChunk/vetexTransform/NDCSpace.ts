@@ -1,7 +1,7 @@
 import { wgsl } from '../../../3rd-party/wgsl-preprocessor';
 import { VertexShaderParam } from '../../shaderLib/geometryPass';
 
-function ScreenSpace(params: VertexShaderParam) {
+function NDCSpace(params: VertexShaderParam) {
   return wgsl
   /* wgsl */`
 
@@ -10,4 +10,4 @@ function ScreenSpace(params: VertexShaderParam) {
   `;
 }
 
-export { ScreenSpace }
+export { NDCSpace }

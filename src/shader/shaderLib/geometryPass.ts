@@ -53,7 +53,7 @@ fn main(input: VertInput) -> VertOutput {
 
   ${VertexTransform.ObjectSpace(params)}
   ${VertexTransform.WorldSpace(params)}
-  ${VertexTransform.ScreenSpace(params)}
+  ${VertexTransform.NDCSpace(params)}
 
   return VertOutput(
     positionScreen, 

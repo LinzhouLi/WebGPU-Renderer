@@ -93,7 +93,7 @@ class Skybox extends RenderableObject {
       }, 
       depthStencil: {
         depthWriteEnabled: true,
-        depthCompare: 'less-equal', // 深度比较改为 less-equal
+        depthCompare: 'greater-equal', // 深度比较改为 less-equal
         format: 'depth32float'
       }
     });

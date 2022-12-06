@@ -78,8 +78,8 @@ class Main {
     this.clock = new THREE.Clock();
 
     // camera
-    this.camera = new THREE.PerspectiveCamera( 50, window.innerWidth / window.innerHeight, 0.1, 5000 );
-    this.camera.position.set( 0, 4, 0 );
+    this.camera = new THREE.PerspectiveCamera( 50, window.innerWidth / window.innerHeight, 0.1, 10 );
+    this.camera.position.set( 2, 2, 0 );
     this.camera.lookAt( 0, 0, 0 );
     this.scene.add(this.camera)
     new OrbitControls(this.camera, this.canvas); // controls
@@ -240,7 +240,7 @@ class Main {
       material.roughness = 0.1;
       material.metalness = 1.0;
       const mesh = new THREE.Mesh( geometry, material );
-      mesh.position.set(0, 2.5, 0);
+      mesh.position.set(0, 2.5, 1);
       this.scene.add( mesh );
     }
     // {

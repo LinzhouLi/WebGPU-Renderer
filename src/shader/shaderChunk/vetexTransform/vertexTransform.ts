@@ -2,7 +2,7 @@ import { wgsl } from '../../../3rd-party/wgsl-preprocessor';
 import { VertexShaderParam } from '../../shaderLib/geometryPass';
 import { ObjectSpace } from "./objectSpace";
 import { WorldSpace } from "./worldSpace";
-import { ScreenSpace } from "./screenSpace";
+import { NDCSpace } from "./NDCSpace";
 import { DataStructure } from '../../shaderChunk';
 
 function VertexTransformPars(
@@ -21,6 +21,6 @@ ${bindingIndices['transform']} var<uniform> transform : Transform;
   `;
 };
 
-const VertexTransform = { ObjectSpace, WorldSpace, ScreenSpace };
+const VertexTransform = { ObjectSpace, WorldSpace, NDCSpace };
 
 export { VertexTransformPars, VertexTransform };

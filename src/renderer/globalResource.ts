@@ -18,6 +18,12 @@ class GlobalResource {
   
   public resource: Record<string, GPUBuffer | GPUTexture | GPUSampler>; // resource in GPU
 
+  private _fov: number;
+  private _halfHeight: number; private _halfWidth: number;
+  private _Right: THREE.Vector3; private _Top: THREE.Vector3; private _Forward: THREE.Vector3;
+  private _BottomLeft: THREE.Vector3; private _BottomRight: THREE.Vector3;
+  private _TopLeft: THREE.Vector3; private _TopRight: THREE.Vector3;
+
   constructor(camera: THREE.PerspectiveCamera, light: THREE.PointLight | THREE.DirectionalLight, scene: THREE.Scene) {
 
     this.camera = camera;
@@ -43,7 +49,7 @@ class GlobalResource {
       // camera
       camera: {
         type: 'buffer' as ResourceType,
-        label: 'Camera Structure', // position(vec3), view matrix(mat4x4), projection matrix(mat4x4)
+        label: 'Camera Structure', 
         visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
         usage:  GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
         layout: { 
@@ -129,6 +135,30 @@ class GlobalResource {
     });
   }
 
+  private initCameraResource() {
+
+    // camera params. used for functions: linear01Depth(), linearEyeDepth()
+    let paramX = this.camera.far / this.camera.near - 1;
+    let paramY = 1;
+    let paramZ = paramX / this.camera.far;
+    let paramW = 1 / this.camera.far;
+
+    // frustum corners. used for reconstructing world position from depth buffer
+    this._fov = this.camera.fov / 180 * Math.PI; // measured in radians
+    this._halfHeight = 1.0 * Math.tan(this._fov / 2);
+    this._halfWidth = this.camera.aspect * this._halfHeight;
+
+    this._Right = new THREE.Vector3(); this._Top = new THREE.Vector3(); this._Forward = new THREE.Vector3();
+    this._BottomLeft = new THREE.Vector3(); this._BottomRight = new THREE.Vector3();
+    this._TopLeft = new THREE.Vector3(); this._TopRight = new THREE.Vector3();
+
+    let cameraBuffer = new Float32Array(4 + 16 + 16 + 4 * 4 + 4);
+    cameraBuffer.set([ paramX, paramY, paramZ, paramW ], 4 + 16 + 16 + 4 * 4);
+
+    return cameraBuffer;
+
+  }
+
   public async initResource() {
 
     this.resourceAttributes = [
@@ -153,10 +183,10 @@ class GlobalResource {
 
     let lightColor = new THREE.Vector3(...this.light.color.toArray()).setScalar(this.light.intensity);
     let shadowMat = this.light.shadow.camera.projectionMatrix.multiply(this.light.shadow.camera.matrixWorldInverse);
-
+    
     const background = this.scene.background as THREE.CubeTexture;
     this.resourceCPUData = {
-      camera: { value: new Float32Array(4 + 16 + 16) }, // update per frame
+      camera: { value: this.initCameraResource() }, // update per frame
       shadowMat: { value: new Float32Array(shadowMat.toArray()) },
       [this.lightType]: { 
         value: new Float32Array([
@@ -177,13 +207,29 @@ class GlobalResource {
 
   public update() {
 
-    // camera (position, view matrix, projection matrix)
+    // camera
     this.camera.position.setFromMatrixPosition(this.camera.matrixWorld);
+
+    // compute frustum corners
+    this.camera.matrixWorld.extractBasis(this._Right, this._Top, this._Forward);
+    this._Right.multiplyScalar(this._halfWidth);
+    this._Top.multiplyScalar(this._halfHeight);
+    this._Forward.multiplyScalar(-1);
+
+    this._BottomLeft.copy(this._Forward).sub(this._Top).sub(this._Right);
+    this._BottomRight.copy(this._Forward).sub(this._Top).add(this._Right);
+    this._TopLeft.copy(this._Forward).add(this._Top).sub(this._Right);
+    this._TopRight.copy(this._Forward).add(this._Top).add(this._Right);
+
     const cameraBufferData = this.resourceCPUData.camera as BufferData;
     cameraBufferData.value.set([
       ...this.camera.position.toArray(), 0,
       ...this.camera.matrixWorldInverse.toArray(),
-      ...this.camera.projectionMatrix.toArray()
+      ...this.camera.projectionMatrix.toArray(),
+      ...this._BottomLeft.toArray(), 0,
+      ...this._BottomRight.toArray(), 0,
+      ...this._TopLeft.toArray(), 0,
+      ...this._TopRight.toArray(), 0
     ]);
 
     device.queue.writeBuffer(

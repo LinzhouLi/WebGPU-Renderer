@@ -12,8 +12,9 @@ struct VertOutput {
 @vertex
 fn main(@location(0) position: vec3<f32>) -> VertOutput {
   let positionCamera = camera.viewMat * vec4<f32>(position, 0.0);
-  let positionScreen = camera.projectionMat * vec4<f32>(positionCamera.xyz, 1.0);
-  return VertOutput(positionScreen.xyww, position);
+  let positionNDC = camera.projectionMat * vec4<f32>(positionCamera.xyz, 1.0);
+  let positionReverseZ = vec4<f32>(positionNDC.xy, 0.0, positionNDC.w);
+  return VertOutput(positionReverseZ, position);
 }
 `;
 

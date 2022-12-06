@@ -23,8 +23,10 @@ THREE.Matrix4.prototype.makePerspective = function ( left, right, top, bottom, n
 
 	const a = ( right + left ) / ( right - left );
 	const b = ( top + bottom ) / ( top - bottom );
-	const c = - far / ( far - near );
-	const d = - far * near / ( far - near );
+	// const c = - far / ( far - near );
+	// const d = - far * near / ( far - near );
+  const c = near / ( far - near );              // Reverse Z. https://vincent-p.github.io/posts/vulkan_perspective_matrix/
+	const d = far * near / ( far - near );
 
 	te[ 0 ] = x;	te[ 4 ] = 0;	te[ 8 ] = a;	te[ 12 ] = 0;
 	te[ 1 ] = 0;	te[ 5 ] = y;	te[ 9 ] = b;	te[ 13 ] = 0;
@@ -288,7 +290,7 @@ class RenderController {
       colorAttachments: targetAttachments,
       depthStencilAttachment: {
         view: this.renderDepthMapView,
-        depthClearValue: 1.0,
+        depthClearValue: 0.0,
         depthLoadOp: 'clear',
         depthStoreOp: 'store',
       }
