@@ -80,7 +80,7 @@ fn main(
   let depthEye = linearEyeDepth(GBufferDepthValue);
   let positionWorld =  camera.position + depthEye * viewVector;
 
-  return vec4<f32>(vec3<f32>(depth01), 1.0);
+  return vec4<f32>(normalWorld, 1.0);
 }
 `;
 

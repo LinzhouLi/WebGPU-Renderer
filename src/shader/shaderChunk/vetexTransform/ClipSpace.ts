@@ -1,7 +1,7 @@
 import { wgsl } from '../../../3rd-party/wgsl-preprocessor';
 import { VertexShaderParam } from '../../shaderLib/geometryPass';
 
-function NDCSpace(params: VertexShaderParam) {
+function ClipSpace(params: VertexShaderParam) {
   return wgsl
   /* wgsl */`
 
@@ -10,4 +10,4 @@ function NDCSpace(params: VertexShaderParam) {
   `;
 }
 
-export { NDCSpace }
+export { ClipSpace }
