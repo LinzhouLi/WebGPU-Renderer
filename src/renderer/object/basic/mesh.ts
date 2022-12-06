@@ -3,8 +3,8 @@ import { device } from '../../renderer';
 import type { TypedArray } from '../../base';
 import { vertexBufferFactory, resourceFactory, bindGroupFactory } from '../../base';
 import { RenderableObject } from '../renderableObject';
-import { GeometryPassShader } from '../../shader/shaderLib/geometryPass';
-import { ShadowPassShader } from '../../shader/shaderLib/shadowPass';
+import { GeometryPassShader } from '../../../shader/shaderLib/geometryPass';
+import { ShadowPassShader } from '../../../shader/shaderLib/shadowPass';
 import type { ResourceType, BufferData, TextureData, TextureArrayData } from '../../resource/resuorce';
 import { ResourceFactory } from '../../resource/resuorce';
 

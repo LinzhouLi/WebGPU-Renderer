@@ -1,4 +1,4 @@
-import { wgsl } from '../../../3rd-party/wgsl-preprocessor';
+import { wgsl } from '../../3rd-party/wgsl-preprocessor';
 import { 
   GeometryPassIO, 
   VertexTransformPars, VertexTransform,
@@ -68,7 +68,6 @@ fn main(input: VertInput) -> VertOutput {
 }
 
   `;
-  console.log(code);
   return code;
 
 }
@@ -120,7 +119,6 @@ fn main(input: FragInput) -> FragOutput {
 }
 
   `;
-  console.log(code);
   return code;
 
 }

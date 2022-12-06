@@ -1,4 +1,4 @@
-import { wgsl } from '../../../3rd-party/wgsl-preprocessor';
+import { wgsl } from '../../3rd-party/wgsl-preprocessor';
 import { ShaderParam, VertexShaderParam, FragmentShaderParam } from '../shaderLib/geometryPass';
 
 // geometry pass

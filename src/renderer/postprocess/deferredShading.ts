@@ -1,5 +1,5 @@
 import { PostProcess } from './postprocess';
-import { DecodeGBuffer, ColorManagement } from '../shader/shaderChunk';
+import { DecodeGBuffer, ColorManagement } from '../../shader/shaderChunk';
 
 const fragmentShader = /* wgsl */`
 

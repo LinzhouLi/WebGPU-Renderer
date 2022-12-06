@@ -4,7 +4,7 @@ import {
   bindGroupFactory
 } from '../base';
 import { RenderableObject } from './renderableObject';
-import { SkyboxShader } from '../shader/shaderLib/skybox';
+import { SkyboxShader } from '../../shader/shaderLib/skybox';
 
 
 const skyboxFragmentShader = /* wgsl */`

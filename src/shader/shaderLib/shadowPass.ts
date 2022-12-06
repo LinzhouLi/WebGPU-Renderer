@@ -1,4 +1,4 @@
-import { wgsl } from '../../../3rd-party/wgsl-preprocessor';
+import { wgsl } from '../../3rd-party/wgsl-preprocessor';
 import { DataStructure } from '../shaderChunk';
 import { getSlotLocations, getBindingIndices } from './shaderProgramTool';
 

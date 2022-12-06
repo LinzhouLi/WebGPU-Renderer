@@ -1,4 +1,4 @@
-import { wgsl } from '../../../../3rd-party/wgsl-preprocessor';
+import { wgsl } from '../../../3rd-party/wgsl-preprocessor';
 import { VertexShaderParam } from '../../shaderLib/geometryPass';
 import { ObjectSpace } from "./objectSpace";
 import { WorldSpace } from "./worldSpace";
