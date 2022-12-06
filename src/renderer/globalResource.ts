@@ -187,8 +187,8 @@ class GlobalResource {
     ]);
 
     device.queue.writeBuffer(
-      this.resource.camera as GPUBuffer,
-      0, cameraBufferData.value as TypedArray
+      this.resource.camera as GPUBuffer, 0, 
+      cameraBufferData.value as TypedArray, 0
     );
 
   }

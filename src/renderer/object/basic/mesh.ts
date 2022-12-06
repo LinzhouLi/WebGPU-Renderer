@@ -162,14 +162,14 @@ class Mesh extends RenderableObject {
 
     this.resourceAttributes = ['transform', 'material'];
     this.resourceCPUData = {
-      transform: { value: new Float32Array(16 + 16 + 12) }, // update per frame
+      transform: { value: new Float32Array(16 + 12) }, // update per frame
       material: { 
         value: new Float32Array([
           material.metalness, 
           material.specularIntensity, 
           material.roughness,
           0, // for alignment
-          ...material.color.toArray(),
+          ...material.color.toArray(), 0 // fix bug: bind group is too small!
         ])
       }
     };

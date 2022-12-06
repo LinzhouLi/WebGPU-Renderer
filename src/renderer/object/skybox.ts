@@ -73,7 +73,7 @@ class Skybox extends RenderableObject {
       ['camera', 'linearSampler', 'envMap'],
       globalResource
     );
-    console.log(targetStates)
+    
     this.renderPipeline = await device.createRenderPipelineAsync({
       label: 'Skybox Render Pipeline',
       layout: device.createPipelineLayout({ bindGroupLayouts: [layout] }),
